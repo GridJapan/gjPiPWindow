@@ -29,7 +29,14 @@ final class PiPPanel: NSPanel {
         Debug.log("panel placed at \(frame) on \(screen?.localizedName ?? "nil")")
     }
 
-    override var canBecomeKey: Bool { true }
+    /// The PiP must never take keyboard focus. Any key pressed while looking at
+    /// it is meant for the display it is showing, not for the window — and as a
+    /// panel it would treat Esc as "cancel" and close itself, which killed the
+    /// Esc-mashing panic exit on its very first press.
+    override var canBecomeKey: Bool { false }
+
+    /// Belt and braces: never close on Esc even if something else makes this key.
+    override func cancelOperation(_ sender: Any?) {}
 }
 
 /// Displays capture frames and turns a click into an interaction-mode entry at
@@ -132,7 +139,7 @@ final class PiPWindowController: NSObject, NSWindowDelegate {
     }
 
     func show(frameRate: Int) {
-        panel.makeKeyAndOrderFront(nil)
+        panel.orderFront(nil)
         Task {
             do {
                 try await engine.start(display: display, frameRate: frameRate)
@@ -144,9 +151,18 @@ final class PiPWindowController: NSObject, NSWindowDelegate {
     }
 
     func close() {
+        releaseMouseIfCaptured()
         engine.stop()
         panel.orderOut(nil)
         onClose?(displayID)
+    }
+
+    /// A captured mouse outlasting its window would strand the cursor on a
+    /// display the user cannot see, with nothing left to walk out of.
+    private func releaseMouseIfCaptured() {
+        let interaction = InteractionController.shared
+        guard interaction.isActive, interaction.displayID == displayID else { return }
+        interaction.deactivate()
     }
 
     func setInteractionActive(_ active: Bool) {
@@ -196,6 +212,7 @@ final class PiPWindowController: NSObject, NSWindowDelegate {
     // MARK: - NSWindowDelegate
 
     func windowWillClose(_ notification: Notification) {
+        releaseMouseIfCaptured()
         engine.stop()
         onClose?(displayID)
     }
