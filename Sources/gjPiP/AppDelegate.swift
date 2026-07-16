@@ -9,6 +9,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var controllers: [CGDirectDisplayID: PiPWindowController] = [:]
     private var frameRate = 60
 
+    private static let placementKey = "PiPScreenName"
+    private static let defaultPlacement = "BenQ EX3410R"
+
+    /// Which screen new PiP windows open on, by `NSScreen.localizedName`.
+    /// Stored by name rather than display ID because IDs are not stable across
+    /// reconnects, and this should survive unplugging a monitor.
+    private var placementName: String {
+        get { UserDefaults.standard.string(forKey: Self.placementKey) ?? Self.defaultPlacement }
+        set { UserDefaults.standard.set(newValue, forKey: Self.placementKey) }
+    }
+
+    private var placementScreen: NSScreen? {
+        NSScreen.screens.first { $0.localizedName == placementName } ?? NSScreen.main
+    }
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         statusItem.button?.image = NSImage(systemSymbolName: "pip", accessibilityDescription: "gjPiP")
@@ -90,6 +105,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
 
         menu.addItem(.separator())
+        menu.addItem(header("PiP ウィンドウを開く画面"))
+        for screen in NSScreen.screens {
+            let item = NSMenuItem(title: screen.localizedName, action: #selector(setPlacement(_:)), keyEquivalent: "")
+            item.target = self
+            item.representedObject = screen.localizedName
+            item.state = screen.localizedName == placementName ? .on : .off
+            menu.addItem(item)
+        }
+        if !NSScreen.screens.contains(where: { $0.localizedName == placementName }) {
+            let item = NSMenuItem(title: "\(placementName)（未接続）", action: nil, keyEquivalent: "")
+            item.isEnabled = false
+            item.state = .on
+            menu.addItem(item)
+        }
+
+        menu.addItem(.separator())
         menu.addItem(header("フレームレート"))
         for rate in [30, 60, 120] {
             let item = NSMenuItem(title: "\(rate) fps", action: #selector(setFrameRate(_:)), keyEquivalent: "")
@@ -127,10 +158,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             existing.close()
             return
         }
-        let controller = PiPWindowController(display: display, name: name(for: display))
+        let controller = PiPWindowController(display: display, name: name(for: display), on: placementScreen)
         controller.onClose = { [weak self] id in self?.controllers[id] = nil }
         controllers[display.displayID] = controller
         controller.show(frameRate: frameRate)
+    }
+
+    @objc private func setPlacement(_ sender: NSMenuItem) {
+        guard let name = sender.representedObject as? String else { return }
+        placementName = name
+        // Existing windows stay put; moving them under the user would be rude.
+        Debug.log("PiP placement set to \(name)")
     }
 
     @objc private func setFrameRate(_ sender: NSMenuItem) {
@@ -139,7 +177,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         for (id, controller) in controllers {
             guard let display = displays.first(where: { $0.displayID == id }) else { continue }
             controller.close()
-            let replacement = PiPWindowController(display: display, name: name(for: display))
+            let replacement = PiPWindowController(display: display, name: name(for: display), on: placementScreen)
             replacement.onClose = { [weak self] id in self?.controllers[id] = nil }
             controllers[id] = replacement
             replacement.show(frameRate: frameRate)

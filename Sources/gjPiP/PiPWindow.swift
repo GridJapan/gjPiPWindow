@@ -21,6 +21,12 @@ final class PiPPanel: NSPanel {
         contentAspectRatio = aspect
         isMovableByWindowBackground = false
         backgroundColor = .black
+
+        // NSPanel's initializer does not honour contentRect's origin — it moves
+        // the window horizontally on its own. Put it where it was asked to go.
+        setContentSize(contentRect.size)
+        setFrameOrigin(frameRect(forContentRect: contentRect).origin)
+        Debug.log("panel placed at \(frame) on \(screen?.localizedName ?? "nil")")
     }
 
     override var canBecomeKey: Bool { true }
@@ -31,7 +37,7 @@ final class PiPPanel: NSPanel {
 final class PiPContentView: NSView {
 
     var onActivateInteraction: ((CGPoint) -> Void)?
-    private let badge = NSTextField(labelWithString: "⌃⌘Esc で操作モード解除")
+    private let badge = NSTextField(labelWithString: "端まで動かすと解除 ／ Esc 5回連打で強制解除")
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -98,13 +104,13 @@ final class PiPWindowController: NSObject, NSWindowDelegate {
     private let panel: PiPPanel
     private let view: PiPContentView
 
-    init(display: SCDisplay, name: String) {
+    init(display: SCDisplay, name: String, on screen: NSScreen?) {
         self.display = display
         self.displayID = display.displayID
         self.name = name
 
         let aspect = NSSize(width: display.width, height: display.height)
-        let initial = Self.initialFrame(aspect: aspect)
+        let initial = Self.initialFrame(aspect: aspect, on: screen)
         panel = PiPPanel(contentRect: initial, aspect: aspect)
         view = PiPContentView(frame: NSRect(origin: .zero, size: initial.size))
         super.init()
@@ -155,17 +161,36 @@ final class PiPWindowController: NSObject, NSWindowDelegate {
         let target = CGPoint(x: bounds.minX + p.x * bounds.width,
                              y: bounds.minY + p.y * bounds.height)
         Debug.log("enter interaction, normalized \(p) → \(target) on display \(displayID)")
-        let ok = InteractionController.shared.activate(displayID: displayID, at: target)
+        let ok = InteractionController.shared.activate(
+            displayID: displayID,
+            at: target,
+            pipContentRect: { [weak self] in self?.pictureRectInGlobalDisplayCoords() ?? .zero }
+        )
         if !ok { presentAccessibilityNeeded() }
+    }
+
+    /// The picture's frame in the coordinates CGEvent and CGDisplay use: origin
+    /// at the *top* left of the primary screen, y growing downward. AppKit's
+    /// screen coordinates put the origin at its bottom left, hence the flip.
+    private func pictureRectInGlobalDisplayCoords() -> CGRect {
+        guard let window = view.window, let primary = NSScreen.screens.first else { return .zero }
+        let inScreen = window.convertToScreen(view.convert(view.bounds, to: nil))
+        return CGRect(x: inScreen.minX,
+                      y: primary.frame.maxY - inScreen.maxY,
+                      width: inScreen.width,
+                      height: inScreen.height)
     }
 
     // MARK: - Layout
 
-    private static func initialFrame(aspect: NSSize) -> NSRect {
-        let screen = NSScreen.main?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
-        let width = min(screen.width / 3, 720)
+    /// Bottom-right of the chosen screen, out of the way of most work.
+    private static func initialFrame(aspect: NSSize, on screen: NSScreen?) -> NSRect {
+        let target = screen ?? NSScreen.main
+        let area = target?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
+        let width = min(area.width / 3, 720)
         let height = width * aspect.height / max(aspect.width, 1)
-        return NSRect(x: screen.maxX - width - 24, y: screen.minY + 24, width: width, height: height)
+        Debug.log("placing on \(target?.localizedName ?? "nil"), visibleFrame=\(area)")
+        return NSRect(x: area.maxX - width - 24, y: area.minY + 24, width: width, height: height)
     }
 
     // MARK: - NSWindowDelegate
