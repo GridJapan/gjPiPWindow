@@ -1,22 +1,27 @@
 import AppKit
 import ScreenCaptureKit
 
-/// A floating panel showing one captured display.
+/// A panel showing one captured display.
 ///
-/// Non-activating and utility-styled so clicking it doesn't yank focus away
-/// from whatever the user is working in, and so the titlebar stays out of the
-/// way. The content aspect ratio is locked to the source display's, which keeps
-/// the picture unletterboxed and makes view→display coordinate mapping exact.
+/// Utility-styled to keep the titlebar out of the way. The content aspect ratio is locked to
+/// the source display's, which keeps the picture unletterboxed and makes view→display
+/// coordinate mapping exact.
+///
+/// This was once a non-activating panel that could become neither key nor main, so that
+/// clicking it never stole focus. The cost only became visible once it stopped floating: an
+/// app with no focusable window cannot be activated at all — `NSRunningApplication.activate()`
+/// returned true while `isActive` stayed false — and macOS raises a normal-level window only
+/// by activating its app. The PiP was therefore a window that could never be brought forward.
+/// Picking it in Mission Control raised it for an instant, then macOS restored the previously
+/// active app and its windows buried it again.
 final class PiPPanel: NSPanel {
-    init(contentRect: NSRect, aspect: NSSize) {
+    init(contentRect: NSRect, aspect: NSSize, alwaysOnTop: Bool) {
         super.init(contentRect: contentRect,
-                   styleMask: [.titled, .closable, .resizable, .utilityWindow, .nonactivatingPanel],
+                   styleMask: [.titled, .closable, .resizable, .utilityWindow],
                    backing: .buffered,
                    defer: false)
-        isFloatingPanel = true
-        level = .floating
         hidesOnDeactivate = false
-        collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+        setAlwaysOnTop(alwaysOnTop)
         titlebarAppearsTransparent = true
         contentAspectRatio = aspect
         isMovableByWindowBackground = false
@@ -29,13 +34,33 @@ final class PiPPanel: NSPanel {
         Debug.log("panel placed at \(frame) on \(screen?.localizedName ?? "nil")")
     }
 
-    /// The PiP must never take keyboard focus. Any key pressed while looking at
-    /// it is meant for the display it is showing, not for the window — and as a
-    /// panel it would treat Esc as "cancel" and close itself, which killed the
-    /// Esc-mashing panic exit on its very first press.
-    override var canBecomeKey: Bool { false }
+    /// Floating above everything and appearing in Mission Control are mutually exclusive:
+    /// Mission Control only lays out `.managed` windows at the normal level, and a window
+    /// that joins all spaces has no single space to be filed under — it is sticky, like the
+    /// menu bar. So the two modes swap the whole set together rather than just the level.
+    func setAlwaysOnTop(_ on: Bool) {
+        isFloatingPanel = on
+        level = on ? .floating : .normal
+        collectionBehavior = on
+            ? [.canJoinAllSpaces, .fullScreenAuxiliary]
+            : [.managed, .fullScreenAuxiliary]
+    }
 
-    /// Belt and braces: never close on Esc even if something else makes this key.
+    /// Focusable like any other window, which is what makes the app activatable and the
+    /// window raisable. `NSPanel` refuses main by default, so both have to be granted.
+    ///
+    /// Taking key status is the deliberate reversal of an earlier rule that the PiP must never
+    /// hold keyboard focus. That rule bought two things, and neither is lost here: Esc no
+    /// longer closes the panel because `cancelOperation` is overridden below, and the panic
+    /// exit reads Esc from a global event tap rather than from this window. What it costs is
+    /// that keys pressed while the PiP itself is focused now land on gjPiP, which has nothing
+    /// to do with them — click into the display being shown and its own app takes focus.
+    override var canBecomeKey: Bool { true }
+    override var canBecomeMain: Bool { true }
+
+    /// `NSPanel` reads Esc as "cancel" and closes itself. That once killed the Esc-mashing
+    /// panic exit on its very first press, and left the event tap holding the mouse with the
+    /// window gone.
     override func cancelOperation(_ sender: Any?) {}
 }
 
@@ -44,7 +69,10 @@ final class PiPPanel: NSPanel {
 final class PiPContentView: NSView {
 
     var onActivateInteraction: ((CGPoint) -> Void)?
+
+    private static let badgeVisibleSeconds: Double = 5
     private let badge = NSTextField(labelWithString: "端まで動かすと解除 ／ Esc 5回連打で強制解除")
+    private var badgeHide: Task<Void, Never>?
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -76,14 +104,25 @@ final class PiPContentView: NSView {
         CATransaction.commit()
     }
 
+    /// The hint has done its job once it has been read, and it sits on top of the very picture
+    /// it is explaining, so it gets out of the way on its own. Interaction mode itself carries
+    /// on — the title bar's ● is the part that has to stay.
     func setInteractionActive(_ active: Bool) {
+        badgeHide?.cancel()
         badge.isHidden = !active
+        guard active else { return }
+        badgeHide = Task { @MainActor [weak self] in
+            try? await Task.sleep(nanoseconds: UInt64(Self.badgeVisibleSeconds * 1_000_000_000))
+            guard !Task.isCancelled else { return }
+            self?.badge.isHidden = true
+        }
     }
 
-    /// The PiP panel is normally not the key window, and by default a click on
-    /// an inactive window is consumed just to focus it. Interaction mode has to
-    /// start on that very first click, so take it.
-    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+    /// Let AppKit spend the first click on focusing the window, the way every other window
+    /// behaves. Handing the mouse to another display is too big a thing to happen to someone
+    /// who was only clicking to bring the PiP forward; it takes a second, deliberate click on
+    /// an already-focused window.
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { false }
 
     override func mouseDown(with event: NSEvent) {
         let local = convert(event.locationInWindow, from: nil)
@@ -111,14 +150,14 @@ final class PiPWindowController: NSObject, NSWindowDelegate {
     private let panel: PiPPanel
     private let view: PiPContentView
 
-    init(display: SCDisplay, name: String, on screen: NSScreen?) {
+    init(display: SCDisplay, name: String, on screen: NSScreen?, alwaysOnTop: Bool) {
         self.display = display
         self.displayID = display.displayID
         self.name = name
 
         let aspect = NSSize(width: display.width, height: display.height)
         let initial = Self.initialFrame(aspect: aspect, on: screen)
-        panel = PiPPanel(contentRect: initial, aspect: aspect)
+        panel = PiPPanel(contentRect: initial, aspect: aspect, alwaysOnTop: alwaysOnTop)
         view = PiPContentView(frame: NSRect(origin: .zero, size: initial.size))
         super.init()
 
@@ -136,6 +175,11 @@ final class PiPWindowController: NSObject, NSWindowDelegate {
             NSLog("gjPiP: capture stopped: \(error.localizedDescription)")
             self?.close()
         }
+    }
+
+    /// Applied to open windows too, so the menu toggle takes effect without reopening.
+    func setAlwaysOnTop(_ on: Bool) {
+        panel.setAlwaysOnTop(on)
     }
 
     func show(frameRate: Int) {

@@ -1,6 +1,25 @@
 import AppKit
 import CoreGraphics
 
+/// A side of the source display, as a way out of interaction mode.
+enum Edge: String, CaseIterable {
+    case top, bottom, left, right
+
+    var label: String {
+        switch self {
+        case .top: return "上"
+        case .bottom: return "下"
+        case .left: return "左"
+        case .right: return "右"
+        }
+    }
+
+    /// Every side is a way out except the bottom, which is where the Dock lives. Releasing
+    /// there would make the Dock unreachable from the PiP: revealing it means putting the
+    /// cursor on the very edge that would eject you, so you would leave rather than arrive.
+    var escapesByDefault: Bool { self != .bottom }
+}
+
 /// Forwards physical mouse input to a captured display while "interaction mode"
 /// is on.
 ///
@@ -15,7 +34,7 @@ import CoreGraphics
 /// inspects each mouse event's proposed location, and the moment one falls
 /// outside the source display, interaction ends and the cursor is dropped just
 /// outside the PiP window on the side it left from. The PiP is a portal you can
-/// walk out of, not a trap. ⌃⌘Esc, and mashing Esc five times, are backstops.
+/// walk out of, not a trap. Control+Command+Esc, and mashing Esc five times, are backstops.
 ///
 /// Note what this deliberately does *not* do: integrate `mouseEventDelta` into a
 /// position of its own. Doing that feeds the cursor's own warps back in as
@@ -32,6 +51,10 @@ final class InteractionController {
 
     static let shared = InteractionController()
     private init() {}
+
+    /// Which sides let the cursor out. A side that does not is a wall: the cursor stops there
+    /// instead, exactly as it does at the edge of a real monitor with nothing beyond it.
+    var escapingEdges: Set<Edge> = Set(Edge.allCases.filter(\.escapesByDefault))
 
     /// Stamped on the events we post so the tap can let its own output pass.
     private static let magic: Int64 = 0x676A_5069_50    // "gjPiP"
@@ -191,16 +214,38 @@ final class InteractionController {
 
         case .mouseMoved:
             let b = CGDisplayBounds(displayID)
-            guard !b.isEmpty, !inside(event.location, b) else {
-                return Unmanaged.passUnretained(event)
+            guard !b.isEmpty else { return Unmanaged.passUnretained(event) }
+
+            if let crossed = edgeCrossed(event.location, b) {
+                // Walking off an edge ends forwarding, the way leaving a monitor does. This is
+                // the primary way out — Control+Command+Esc is just a backstop.
+                guard escapingEdges.contains(crossed) else {
+                    // A wall. Only reachable when a display happens to sit beyond this side,
+                    // since otherwise macOS pins the cursor for us. Put it back.
+                    guard let copy = event.copy() else { return nil }
+                    copy.location = clamp(event.location)
+                    copy.setIntegerValueField(.eventSourceUserData, value: Self.magic)
+                    copy.post(tap: .cghidEventTap)
+                    return nil
+                }
+                let leftAt = event.location
+                DispatchQueue.main.async { [weak self] in
+                    self?.releaseAtEdge(leaving: leftAt, bounds: b)
+                }
+                return nil
             }
-            // Walking off any edge ends forwarding, the way leaving a monitor
-            // does. This is the primary way out — ⌃⌘Esc is just a backstop.
-            let leftAt = event.location
-            DispatchQueue.main.async { [weak self] in
-                self?.releaseAtEdge(leaving: leftAt, bounds: b)
+
+            // An edge with no display beyond it never produces a location outside the bounds:
+            // macOS pins the cursor there instead, so the check above can never fire and that
+            // side of the portal has no way out. Push against such an edge and it opens.
+            if let (edge, pushed) = edgePushedAgainst(event: event, bounds: b),
+               escapingEdges.contains(edge) {
+                DispatchQueue.main.async { [weak self] in
+                    self?.releaseAtEdge(leaving: pushed, bounds: b)
+                }
+                return nil
             }
-            return nil
+            return Unmanaged.passUnretained(event)
 
         case .leftMouseDragged, .rightMouseDragged, .otherMouseDragged:
             // Clamp rather than release: ejecting mid-drag would drop whatever
@@ -221,6 +266,58 @@ final class InteractionController {
     }
 
     // MARK: - Leaving
+
+    /// Which side the cursor has already left by, or nil while it is still on the display.
+    private func edgeCrossed(_ p: CGPoint, _ b: CGRect) -> Edge? {
+        if p.y < b.minY { return .top }
+        if p.y > b.maxY - 1 { return .bottom }
+        if p.x < b.minX { return .left }
+        if p.x > b.maxX - 1 { return .right }
+        return nil
+    }
+
+    /// The side being shoved against plus a point just outside it, when the cursor is pinned
+    /// at an edge macOS will not let it cross — or nil when it is merely resting there.
+    ///
+    /// Only edges with no neighbouring display need this. Where a display *is* adjacent the
+    /// cursor crosses on its own and `edgeCrossed` catches it; where none is, the cursor stops
+    /// dead at the edge and every further push arrives as another event at the same pinned
+    /// location. So the location alone cannot tell "leaving" from "parked at the top" — the
+    /// delta can, and it is only ever read here, never accumulated into a position of our own
+    /// (see this file's note on why that corrupts everything).
+    private func edgePushedAgainst(event: CGEvent, bounds b: CGRect) -> (Edge, CGPoint)? {
+        let dx = event.getIntegerValueField(.mouseEventDeltaX)
+        let dy = event.getIntegerValueField(.mouseEventDeltaY)
+        let p = event.location
+
+        // deltaY is positive downwards, matching the display coordinate space.
+        if p.y <= b.minY, dy < 0, !displayExists(adjacentTo: b, dx: 0, dy: -1) {
+            return (.top, CGPoint(x: p.x, y: b.minY - 1))
+        }
+        if p.y >= b.maxY - 1, dy > 0, !displayExists(adjacentTo: b, dx: 0, dy: 1) {
+            return (.bottom, CGPoint(x: p.x, y: b.maxY))
+        }
+        if p.x <= b.minX, dx < 0, !displayExists(adjacentTo: b, dx: -1, dy: 0) {
+            return (.left, CGPoint(x: b.minX - 1, y: p.y))
+        }
+        if p.x >= b.maxX - 1, dx > 0, !displayExists(adjacentTo: b, dx: 1, dy: 0) {
+            return (.right, CGPoint(x: b.maxX, y: p.y))
+        }
+        return nil
+    }
+
+    /// Whether another display touches the given side. If one does, leave the edge alone: the
+    /// cursor should cross into it normally, and stealing that as an exit would make the two
+    /// displays impossible to move between.
+    private func displayExists(adjacentTo b: CGRect, dx: Int, dy: Int) -> Bool {
+        let probe = CGPoint(x: b.midX + CGFloat(dx) * (b.width / 2 + 1),
+                            y: b.midY + CGFloat(dy) * (b.height / 2 + 1))
+        return NSScreen.screens.contains { screen in
+            guard let id = screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? CGDirectDisplayID,
+                  id != displayID else { return false }
+            return CGDisplayBounds(id).contains(probe)
+        }
+    }
 
     /// Hands control back and puts the cursor just outside the PiP on the side
     /// the cursor left from, so the motion reads as continuous.
