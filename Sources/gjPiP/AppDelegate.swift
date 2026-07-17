@@ -205,8 +205,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             existing.close()
             return
         }
+        // Step the new window clear of the ones already open, which all default to the same
+        // corner and would otherwise hide each other completely.
         let controller = PiPWindowController(display: display, name: name(for: display),
-                                             on: placementScreen, alwaysOnTop: alwaysOnTop)
+                                             on: placementScreen, alwaysOnTop: alwaysOnTop,
+                                             cascade: controllers.count)
         controller.onClose = { [weak self] id in self?.controllers[id] = nil }
         controllers[display.displayID] = controller
         controller.show(frameRate: frameRate)
@@ -237,12 +240,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     @objc private func setFrameRate(_ sender: NSMenuItem) {
         frameRate = sender.tag
-        // Restart live captures at the new rate.
-        for (id, controller) in controllers {
+        // Restart live captures at the new rate. The windows are rebuilt, so they land back on
+        // the cascade rather than where they were — one place each, at least, not one pile.
+        for (place, (id, controller)) in controllers.enumerated() {
             guard let display = displays.first(where: { $0.displayID == id }) else { continue }
             controller.close()
             let replacement = PiPWindowController(display: display, name: name(for: display),
-                                                  on: placementScreen, alwaysOnTop: alwaysOnTop)
+                                                  on: placementScreen, alwaysOnTop: alwaysOnTop,
+                                                  cascade: place)
             replacement.onClose = { [weak self] id in self?.controllers[id] = nil }
             controllers[id] = replacement
             replacement.show(frameRate: frameRate)

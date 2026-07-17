@@ -150,13 +150,13 @@ final class PiPWindowController: NSObject, NSWindowDelegate {
     private let panel: PiPPanel
     private let view: PiPContentView
 
-    init(display: SCDisplay, name: String, on screen: NSScreen?, alwaysOnTop: Bool) {
+    init(display: SCDisplay, name: String, on screen: NSScreen?, alwaysOnTop: Bool, cascade: Int) {
         self.display = display
         self.displayID = display.displayID
         self.name = name
 
         let aspect = NSSize(width: display.width, height: display.height)
-        let initial = Self.initialFrame(aspect: aspect, on: screen)
+        let initial = Self.initialFrame(aspect: aspect, on: screen, cascade: cascade)
         panel = PiPPanel(contentRect: initial, aspect: aspect, alwaysOnTop: alwaysOnTop)
         view = PiPContentView(frame: NSRect(origin: .zero, size: initial.size))
         super.init()
@@ -243,14 +243,28 @@ final class PiPWindowController: NSObject, NSWindowDelegate {
 
     // MARK: - Layout
 
-    /// Bottom-right of the chosen screen, out of the way of most work.
-    private static func initialFrame(aspect: NSSize, on screen: NSScreen?) -> NSRect {
+    /// Bottom-right of the chosen screen, out of the way of most work, stepped up and left by
+    /// `cascade` places.
+    ///
+    /// Without the step every PiP lands on the same pixel. Several can be open at once — each
+    /// has its own capture — but stacked exactly, all but the top one is invisible, and the
+    /// window that is there looks like the one window the app can manage. Steps that would walk
+    /// off the screen wrap back to the corner; overlapping there beats being unreachable.
+    private static func initialFrame(aspect: NSSize, on screen: NSScreen?, cascade: Int) -> NSRect {
         let target = screen ?? NSScreen.main
         let area = target?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
         let width = min(area.width / 3, 720)
         let height = width * aspect.height / max(aspect.width, 1)
-        Debug.log("placing on \(target?.localizedName ?? "nil"), visibleFrame=\(area)")
-        return NSRect(x: area.maxX - width - 24, y: area.minY + 24, width: width, height: height)
+
+        let step: CGFloat = 36
+        let room = min((area.width - width - 48) / step, (area.height - height - 48) / step)
+        let places = max(1, Int(room))
+        let offset = CGFloat(cascade % places) * step
+
+        Debug.log("placing on \(target?.localizedName ?? "nil"), visibleFrame=\(area), cascade=\(cascade)")
+        return NSRect(x: area.maxX - width - 24 - offset,
+                      y: area.minY + 24 + offset,
+                      width: width, height: height)
     }
 
     // MARK: - NSWindowDelegate

@@ -75,6 +75,7 @@ final class InteractionController {
 
     private var tap: CFMachPort?
     private var runLoopSource: CFRunLoopSource?
+    private var activationObserver: NSObjectProtocol?
     private var restorePos: CGPoint = .zero
     /// The PiP's picture in global display coordinates. Re-read on demand
     /// because the window moves and resizes.
@@ -139,6 +140,14 @@ final class InteractionController {
         self.escapePresses.removeAll()
         self.isActive = true
 
+        activationObserver = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didActivateApplicationNotification, object: nil, queue: .main
+        ) { [weak self] note in
+            guard let app = note.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication
+            else { return }
+            self?.focusMoved(to: app)
+        }
+
         warpCursor(to: clamp(point))
         Debug.log("interaction on, display \(displayID), cursor to \(clamp(point))")
         onStateChange?(true)
@@ -160,8 +169,12 @@ final class InteractionController {
         if let runLoopSource {
             CFRunLoopRemoveSource(CFRunLoopGetMain(), runLoopSource, .commonModes)
         }
+        if let activationObserver {
+            NSWorkspace.shared.notificationCenter.removeObserver(activationObserver)
+        }
         tap = nil
         runLoopSource = nil
+        activationObserver = nil
         pipContentRect = nil
 
         warpCursor(to: point)
@@ -266,6 +279,44 @@ final class InteractionController {
     }
 
     // MARK: - Leaving
+
+    /// Ends interaction when the keyboard goes somewhere the PiP cannot show.
+    ///
+    /// Focus leaving gjPiP is not by itself a reason to let go — it is the normal course of
+    /// interaction, since clicking something on the source display is the entire point and
+    /// doing so activates that app. What matters is *where* focus landed. Somewhere off the
+    /// source display means the user has walked away with the keyboard while the mouse is
+    /// still parked on a display they may not even have a monitor for.
+    ///
+    /// Deliberately conservative: unless the new window is provably clear of the source
+    /// display, interaction stays on. A wrong release yanks the cursor out mid-task, while a
+    /// missed one leaves the ordinary ways out (walk to an edge, mash Esc) untouched.
+    private func focusMoved(to app: NSRunningApplication) {
+        guard isActive else { return }
+        guard app.processIdentifier != ProcessInfo.processInfo.processIdentifier else { return }
+        guard let window = frontmostWindowBounds(ofPID: app.processIdentifier) else { return }
+        guard !window.intersects(CGDisplayBounds(displayID)) else { return }
+
+        Debug.log("focus moved to \(app.localizedName ?? "?") off display \(displayID) — returning mouse")
+        deactivate()
+    }
+
+    /// Bounds of the app's frontmost ordinary window, or nil if it has none on screen.
+    private func frontmostWindowBounds(ofPID pid: pid_t) -> CGRect? {
+        let options = CGWindowListOption([.optionOnScreenOnly, .excludeDesktopElements])
+        guard let list = CGWindowListCopyWindowInfo(options, kCGNullWindowID) as? [[String: Any]]
+        else { return nil }
+        // The list is front-to-back, so the first match is the one focus landed on.
+        for entry in list {
+            guard entry[kCGWindowOwnerPID as String] as? pid_t == pid,
+                  entry[kCGWindowLayer as String] as? Int == 0,
+                  let b = entry[kCGWindowBounds as String] as? [String: CGFloat],
+                  let x = b["X"], let y = b["Y"], let w = b["Width"], let h = b["Height"]
+            else { continue }
+            return CGRect(x: x, y: y, width: w, height: h)
+        }
+        return nil
+    }
 
     /// Which side the cursor has already left by, or nil while it is still on the display.
     private func edgeCrossed(_ p: CGPoint, _ b: CGRect) -> Edge? {
