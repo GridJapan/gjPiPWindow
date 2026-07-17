@@ -76,6 +76,7 @@ CSS で図形を並べて代用しない。
 ## 再起動テストの基準（2026-07-17 19:50 時点）
 
 再起動後、これと突き合わせる。**解像度が残っているかが本番**（今日実装した機能）。
+配置はユーザーがシステム設定で手動で並べたもので、macOS 側が覚えている。
 
 ```
 BenQ EX3410R              3440x1440  at (    0,    0)  DefaultDesktop.heic  [主]
@@ -91,7 +92,7 @@ FreeDisplay GridJapan 3   1280x720   at ( 9328,   20)  cyber-dog.png
 | 仮想3台が存在 | 残る | autoCreate=true、ログイン項目に登録済み |
 | **解像度** | 残る | `65ca37c` で実装。**ここが検証対象** |
 | 壁紙 | 残る | 参照先ファイルが実在（`~/claude/live/` と `~/claude/live/wallpapers/`） |
-| 配置（位置） | **不明** | 記憶する機能は無い。macOS 任せ |
+| 配置（横一列） | 残る | **ユーザーがシステム設定で手動配置したもの**。macOS が vendor/product/serial で\n  パネルを識別して復元する。2台目以降の serial を分けてあるので混線しない（`d4abd05`） |
 | PiP ウィンドウ | 消える | gjPiP は開いていた PiP を記憶しない |
 
 `fd.arrangement.externalAbove` は消去済み（初回起動時に true が再度書かれる）。
