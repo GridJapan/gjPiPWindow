@@ -74,12 +74,21 @@ final class PiPContentView: NSView {
     private let badge = NSTextField(labelWithString: "端まで動かすと解除 ／ Esc 5回連打で強制解除")
     private var badgeHide: Task<Void, Never>?
 
+    /// Hosts the capture. A sublayer of its own rather than the view's backing
+    /// layer, because the video filters go on this layer and AppKit considers
+    /// the backing layer its property.
+    private let content = CALayer()
+
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
         wantsLayer = true
+        // Off by default, and with it off AppKit silently drops every CIFilter
+        // set on a sublayer — indistinguishable from the filters being broken.
+        layerUsesCoreImageFilters = true
         layer?.backgroundColor = NSColor.black.cgColor
-        layer?.contentsGravity = .resize
-        layer?.minificationFilter = .trilinear
+        content.contentsGravity = .resize
+        content.minificationFilter = .trilinear
+        layer?.addSublayer(content)
 
         badge.font = .systemFont(ofSize: 11, weight: .medium)
         badge.textColor = .white
@@ -100,7 +109,24 @@ final class PiPContentView: NSView {
     func show(surface: IOSurfaceRef) {
         CATransaction.begin()
         CATransaction.setDisableActions(true)
-        layer?.contents = surface
+        content.contents = surface
+        CATransaction.commit()
+    }
+
+    override func layout() {
+        super.layout()
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        content.frame = bounds
+        CATransaction.commit()
+    }
+
+    /// Swaps the whole chain at once; the layer re-renders the current frame
+    /// with it, so this works the same on a paused picture as on a live one.
+    func apply(filters: [VideoFilter]) {
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        content.filters = filters.compactMap { $0.make() }
         CATransaction.commit()
     }
 
@@ -199,6 +225,26 @@ final class PiPWindowController: NSObject, NSWindowDelegate {
     func setAlwaysOnTop(_ on: Bool) {
         alwaysOnTop = on
         panel.setAlwaysOnTop(on)
+    }
+
+    /// Which video filters this window runs. Held as a set — the chain always
+    /// applies in declaration order (colour, then sharpen/blur, then effects),
+    /// so the result doesn't depend on the order the boxes were ticked in.
+    private(set) var videoFilters: Set<VideoFilter> = []
+
+    func toggleFilter(_ filter: VideoFilter) {
+        if videoFilters.insert(filter).inserted == false { videoFilters.remove(filter) }
+        pushFilters()
+    }
+
+    func clearFilters() {
+        videoFilters.removeAll()
+        pushFilters()
+    }
+
+    private func pushFilters() {
+        view.apply(filters: VideoFilter.allCases.filter(videoFilters.contains))
+        Debug.log("\(name): filters = \(VideoFilter.allCases.filter(videoFilters.contains).map(\.rawValue))")
     }
 
     /// Restarts the capture at the new rate without rebuilding the window, so its size and

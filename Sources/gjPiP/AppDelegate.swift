@@ -45,6 +45,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
     }
 
+    /// Same shape as `EdgeChoice`, for the video-filter toggles.
+    private final class FilterChoice: NSObject {
+        let controller: PiPWindowController
+        let filter: VideoFilter
+        init(controller: PiPWindowController, filter: VideoFilter) {
+            self.controller = controller
+            self.filter = filter
+        }
+    }
+
     /// Which screen new PiP windows open on, by `NSScreen.localizedName`.
     /// Stored by name rather than display ID because IDs are not stable across
     /// reconnects, and this should survive unplugging a monitor.
@@ -248,11 +258,42 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
 
         menu.addItem(.separator())
+        let active = controller.videoFilters.count
+        let filters = NSMenuItem(title: active == 0 ? "ビデオフィルタ" : "ビデオフィルタ（\(active)）",
+                                 action: nil, keyEquivalent: "")
+        filters.submenu = filtersMenu(for: controller)
+        menu.addItem(filters)
+
+        menu.addItem(.separator())
         let close = NSMenuItem(title: "この PiP を閉じる", action: #selector(closePiP(_:)), keyEquivalent: "")
         close.target = self
         close.representedObject = controller
         menu.addItem(close)
 
+        return menu
+    }
+
+    private func filtersMenu(for controller: PiPWindowController) -> NSMenu {
+        let menu = NSMenu()
+        // Explicit enabling, so "すべて解除" can actually grey out — under
+        // automatic validation an item with a target and action is always live.
+        menu.autoenablesItems = false
+        for (title, filters) in VideoFilter.groups {
+            menu.addItem(header(title))
+            for filter in filters {
+                let item = NSMenuItem(title: filter.label, action: #selector(togglePiPFilter(_:)), keyEquivalent: "")
+                item.target = self
+                item.representedObject = FilterChoice(controller: controller, filter: filter)
+                item.state = controller.videoFilters.contains(filter) ? .on : .off
+                menu.addItem(item)
+            }
+        }
+        menu.addItem(.separator())
+        let clear = NSMenuItem(title: "すべて解除", action: #selector(clearPiPFilters(_:)), keyEquivalent: "")
+        clear.target = self
+        clear.representedObject = controller
+        clear.isEnabled = !controller.videoFilters.isEmpty
+        menu.addItem(clear)
         return menu
     }
 
@@ -365,6 +406,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         // Takes effect on the next click into the PiP; a live session keeps the edges it began
         // with rather than having the walls move under the cursor.
         Debug.log("\(controller.name): escaping edges = \(controller.escapingEdges.map(\.rawValue).sorted())")
+    }
+
+    @objc private func togglePiPFilter(_ sender: NSMenuItem) {
+        guard let choice = sender.representedObject as? FilterChoice else { return }
+        choice.controller.toggleFilter(choice.filter)
+    }
+
+    @objc private func clearPiPFilters(_ sender: NSMenuItem) {
+        guard let controller = sender.representedObject as? PiPWindowController else { return }
+        controller.clearFilters()
     }
 
     @objc private func closePiP(_ sender: NSMenuItem) {
