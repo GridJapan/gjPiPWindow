@@ -70,6 +70,23 @@ nav .gh:hover{background:#fff}
   border-radius:12px;box-shadow:0 20px 60px #00000080}
 .cap{font-family:var(--mf);font-size:12px;color:var(--faint);margin-top:10px;text-align:right}
 
+/* ===== what-is-pip callout ===== */
+.whatpip{margin-top:22px;border:1px solid var(--line);border-left:5px solid var(--a2);
+  border-radius:10px;padding:13px 18px;max-width:560px;background:var(--surf)}
+.whatpip .t{font-family:var(--mf);font-size:12.5px;color:var(--a2);letter-spacing:.18em;margin-bottom:5px}
+.whatpip p{font-size:14.5px;color:var(--dim)}
+
+/* ===== pitch band ===== */
+.band{max-width:1180px;margin:10px auto 0;padding:0 28px}
+.band-in{position:relative;overflow:hidden;background:var(--surf);
+  border:1px solid #F4D03F55;border-left:6px solid var(--a1);
+  border-radius:12px;padding:26px 30px}
+.band-in h2{font-family:var(--hf);font-weight:900;font-size:clamp(24px,3.4vw,34px);line-height:1.3}
+.band-in h2 em{font-style:normal;color:var(--a1)}
+.band-in p{margin-top:10px;font-size:15.5px;color:var(--dim);max-width:900px}
+.band-in a{color:var(--a2);text-decoration:none;font-weight:700}
+.band-in a:hover{text-decoration:underline}
+
 /* ===== sections ===== */
 section{position:relative;max-width:1180px;margin:0 auto;padding:74px 28px 10px}
 .sh{display:flex;align-items:baseline;gap:16px;border-bottom:2px solid var(--a1);
@@ -161,6 +178,11 @@ footer a{color:var(--a2);text-decoration:none}
     <h1>仮想ディスプレイを<br><em>PiP</em>から操作する。</h1>
     <p class="sub">macOSメニューバー常駐。任意のディスプレイ（仮想含む）をリアルタイムPiPで表示。
     2クリックでカーソルが移り、そのまま操作できる。</p>
+    <div class="whatpip">
+      <div class="t">PiP とは？</div>
+      <p>PiP（Picture-in-Picture）は、映像を小さな浮かぶ窓で最前面表示する方式。
+      YouTube の小窓再生と同じ仕組みで、gjPiP が浮かべるのは動画ではなく<b>ディスプレイそのもの</b>。</p>
+    </div>
     <div class="btns">
       <a class="btn p" href="https://github.com/GridJapan/gjPiPWindow">GitHub でソースを見る</a>
       <a class="btn s" href="#install">インストール手順</a>
@@ -178,13 +200,22 @@ footer a{color:var(--a2);text-decoration:none}
   </div>
 </div>
 
+<div class="band" id="pitch">
+  <div class="band-in">
+    <h2>PiP に <em>$21.99</em> は要らない。</h2>
+    <p>BetterDisplay では PiP とビデオフィルタは Pro（$21.99・買い切り）の機能。
+    gjPiP は同系統の機能を<b>無料・MIT</b> で提供し、さらに BetterDisplay の公式資料に記載がない
+    <b>PiP越しのマウス操作</b>が付く。<a href="#compare">比較表を見る →</a></p>
+  </div>
+</div>
+
 <section id="demo">
   <div class="sh">
     <span class="no">01</span>
     <h2>主モニタをPiPに映すと、無限鏡になる</h2>
     <span class="tl">Live capture, not a recording.</span>
   </div>
-  <p class="lede">PiPの中身は<b>ライブキャプチャ</b>。映した画面の中に自分自身が入るので、
+  <p class="lede">PiP（Picture-in-Picture）の中身は<b>ライブキャプチャ</b>。映した画面の中に自分自身が入るので、
   窓をドラッグすると鏡のトンネルごと動く。</p>
   <div class="demo">
     <video src="assets/1_mirror.mp4" poster="assets/poster_1.jpg" autoplay loop muted playsinline></video>
@@ -248,7 +279,7 @@ footer a{color:var(--a2);text-decoration:none}
     <div class="card"><h3>複数PiPを同時に</h3><p>ディスプレイごとにPiPを開ける。それぞれが独立したキャプチャ。</p></div>
     <div class="card"><h3>PiPごとの個別設定</h3><p>最前面・フレームレート・脱出する辺・フィルタを、窓ごとに別々に持てる。</p></div>
     <div class="card"><h3>常に最前面</h3><p>既定はOFF。ONにすると他の窓に隠れないが、Mission Controlには出なくなる。</p></div>
-    <div class="card"><h3>脱出する辺を選ぶ</h3><p>操作モードの出口を上下左右で設定。既定は下だけOFF（Dockを出す場所のため）。</p></div>
+    <div class="card"><h3>画面の端まで動かすだけで、現実に戻れる</h3><p>操作モードの脱出は、モニタから出るのと同じ動き。出口にする辺は上下左右でON/OFFでき、既定は下だけOFF（Dockを出す場所のため）。</p></div>
     <div class="card"><h3>フレームレート</h3><p>30・60・120 fps。PiPごとに切り替えられる。</p></div>
     <div class="card"><h3>強制脱出</h3><p>Esc 5回連打、または Control + Command + Esc でいつでもマウスを取り戻せる。</p></div>
   </div>
@@ -277,7 +308,7 @@ footer a{color:var(--a2);text-decoration:none}
       <tr><th>Picture in Picture</th><td>◎（Pro）</td><td class="no2">×</td><td class="no2">×</td><td class="ok2">◎ 無料</td></tr>
       <tr><th>PiP越しのマウス操作</th><td class="no2">記載なし</td><td class="no2">×</td><td class="no2">×</td><td class="ok2">◎ 操作モード</td></tr>
       <tr><th>ビデオフィルタ</th><td>◎（Pro）</td><td class="no2">×</td><td class="no2">×</td><td class="ok2">◎ 17種・同時適用</td></tr>
-      <tr><th>上流バグ修正（4件）</th><td class="no2">−</td><td class="no2">−（現存）</td><td class="ok">◎ 修正済み</td><td class="no2">−</td></tr>
+      <tr><th>既知バグ4件の修正</th><td class="no2">−</td><td class="no2">×（バグ在り）</td><td class="ok">◎ 修正済み</td><td class="no2">−</td></tr>
     </tbody>
   </table>
   </div>
