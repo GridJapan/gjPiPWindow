@@ -171,6 +171,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.addItem(defaultEdges)
 
         menu.addItem(.separator())
+        let gather = NSMenuItem(title: "すべての PiP を主モニタに集める",
+                                action: #selector(gatherAllPiPs), keyEquivalent: "")
+        gather.target = self
+        gather.isEnabled = !controllers.isEmpty
+        menu.addItem(gather)
+        if let main = Self.mainScreen() {
+            menu.addItem(header("  → \(main.localizedName)"))
+        }
+
+        menu.addItem(.separator())
         if InteractionController.shared.isActive {
             let item = NSMenuItem(title: "操作モードを解除 (Control + Command + Esc)",
                                   action: #selector(exitInteraction), keyEquivalent: "")
@@ -305,6 +315,30 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         controller.onClose = { [weak self] id in self?.controllers[id] = nil }
         controllers[display.displayID] = controller
         controller.show()
+    }
+
+    /// The display holding origin (0, 0) — the one with the menu bar.
+    ///
+    /// Deliberately not `NSScreen.main`, which is the screen of the key window and follows the
+    /// keyboard around. Gathering the windows onto "wherever the focus happens to be" would
+    /// scatter them somewhere else the next time; the point is a fixed place to look.
+    private static func mainScreen() -> NSScreen? {
+        NSScreen.screens.first { $0.frame.origin == .zero } ?? NSScreen.screens.first
+    }
+
+    @objc private func gatherAllPiPs() {
+        let screen = Self.mainScreen()
+        // Cascaded rather than piled, for the same reason opening them is.
+        for (place, controller) in openControllersInMenuOrder().enumerated() {
+            controller.gather(onto: screen, cascade: place)
+        }
+        Debug.log("gathered \(controllers.count) PiP(s) onto \(screen?.localizedName ?? "nil")")
+    }
+
+    /// Ordered by the display list rather than by dictionary order, so repeated gathers put the
+    /// same window in the same place instead of reshuffling them.
+    private func openControllersInMenuOrder() -> [PiPWindowController] {
+        displays.compactMap { controllers[$0.displayID] }
     }
 
     // MARK: - Per-window actions

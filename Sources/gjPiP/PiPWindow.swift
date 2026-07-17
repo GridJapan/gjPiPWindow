@@ -216,6 +216,24 @@ final class PiPWindowController: NSObject, NSWindowDelegate {
         startCapture()
     }
 
+    /// Moves the window back onto `screen`, at its `cascade`-th place, and raises it.
+    ///
+    /// A PiP can end up somewhere you cannot look: dragged onto a virtual display, which has no
+    /// monitor, or onto a screen that has since been unplugged. It is still there and still
+    /// capturing — it is just nowhere you can see, and the only handle on it is the one thing
+    /// you cannot find. Hence a way to call every window home that does not require knowing
+    /// where home went.
+    ///
+    /// The size is left alone; only the position moves. Whatever it was resized to is a choice
+    /// worth keeping, and if it no longer fits, macOS will shrink it to the new screen anyway.
+    func gather(onto screen: NSScreen?, cascade: Int) {
+        let frame = Self.initialFrame(aspect: NSSize(width: display.width, height: display.height),
+                                      on: screen, cascade: cascade)
+        panel.setFrameOrigin(frame.origin)
+        panel.orderFront(nil)
+        Debug.log("\(name): gathered to \(frame.origin) on \(screen?.localizedName ?? "nil")")
+    }
+
     private func startCapture() {
         Task {
             do {
