@@ -32,10 +32,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         return UserDefaults.standard.bool(forKey: escapeKey(edge))
     }
 
-    /// The controller is told rather than asked: it reads this on every mouse event, and the
-    /// tap callback is not where UserDefaults lookups belong.
-    private func pushEscapingEdges() {
-        InteractionController.shared.escapingEdges = Set(Edge.allCases.filter(escapes))
+    private static let frameRates = [30, 60, 120]
+
+    /// Ties a per-window edge toggle to the window it belongs to, since an `NSMenuItem` carries
+    /// exactly one `representedObject` and this needs both.
+    private final class EdgeChoice: NSObject {
+        let controller: PiPWindowController
+        let edge: Edge
+        init(controller: PiPWindowController, edge: Edge) {
+            self.controller = controller
+            self.edge = edge
+        }
     }
 
     /// Which screen new PiP windows open on, by `NSScreen.localizedName`.
@@ -76,7 +83,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         if !CGRequestScreenCaptureAccess() {
             NSLog("gjPiP: screen capture not authorized yet — grant it and relaunch")
         }
-        pushEscapingEdges()
         refreshDisplays()
     }
 
@@ -123,58 +129,46 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             item.isEnabled = false
             menu.addItem(item)
         }
+        // One row per display, whether or not its PiP is open. A closed one opens on click; an
+        // open one carries its own settings in a submenu, and is closed from in there.
+        //
+        // The open windows were briefly listed again in a section of their own, which read
+        // worse than it sounds: the same display name appeared twice, one row a toggle and the
+        // other a submenu, with nothing to say which was which.
         for display in displays {
-            let item = NSMenuItem(title: name(for: display), action: #selector(togglePiP(_:)), keyEquivalent: "")
+            let controller = controllers[display.displayID]
+            let item = NSMenuItem(title: name(for: display),
+                                  action: controller == nil ? #selector(togglePiP(_:)) : nil,
+                                  keyEquivalent: "")
             item.target = self
             item.representedObject = display
-            item.state = controllers[display.displayID] != nil ? .on : .off
+            item.state = controller != nil ? .on : .off
+            if let controller {
+                item.submenu = settingsMenu(for: controller)
+            }
             menu.addItem(item)
         }
 
         menu.addItem(.separator())
-        menu.addItem(header("PiP ウィンドウを開く画面"))
-        for screen in NSScreen.screens {
-            let item = NSMenuItem(title: screen.localizedName, action: #selector(setPlacement(_:)), keyEquivalent: "")
-            item.target = self
-            item.representedObject = screen.localizedName
-            item.state = screen.localizedName == placementName ? .on : .off
-            menu.addItem(item)
-        }
-        if !NSScreen.screens.contains(where: { $0.localizedName == placementName }) {
-            let item = NSMenuItem(title: "\(placementName)（未接続）", action: nil, keyEquivalent: "")
-            item.isEnabled = false
-            item.state = .on
-            menu.addItem(item)
-        }
+        menu.addItem(header("新しい PiP の既定"))
 
-        menu.addItem(.separator())
-        menu.addItem(header("枠の外に出たら解除する辺"))
-        for edge in Edge.allCases {
-            let item = NSMenuItem(title: edge.label, action: #selector(toggleEscapeEdge(_:)), keyEquivalent: "")
-            item.target = self
-            item.representedObject = edge.rawValue
-            item.state = escapes(edge) ? .on : .off
-            menu.addItem(item)
-        }
+        let placement = NSMenuItem(title: "開く画面", action: nil, keyEquivalent: "")
+        placement.submenu = placementMenu()
+        menu.addItem(placement)
 
-        menu.addItem(.separator())
-        let onTop = NSMenuItem(title: "常に最前面", action: #selector(toggleAlwaysOnTop), keyEquivalent: "")
-        onTop.target = self
-        onTop.state = alwaysOnTop ? .on : .off
-        menu.addItem(onTop)
-        let onTopNote = header(alwaysOnTop ? "  Control + ↑ の Mission Control には出ません"
-                             : "  Control + ↑ の Mission Control に出ます")
-        menu.addItem(onTopNote)
+        let defaultsOnTop = NSMenuItem(title: "常に最前面", action: #selector(toggleAlwaysOnTop), keyEquivalent: "")
+        defaultsOnTop.target = self
+        defaultsOnTop.state = alwaysOnTop ? .on : .off
+        menu.addItem(defaultsOnTop)
 
-        menu.addItem(.separator())
-        menu.addItem(header("フレームレート"))
-        for rate in [30, 60, 120] {
-            let item = NSMenuItem(title: "\(rate) fps", action: #selector(setFrameRate(_:)), keyEquivalent: "")
-            item.target = self
-            item.tag = rate
-            item.state = rate == frameRate ? .on : .off
-            menu.addItem(item)
-        }
+        let defaultRate = NSMenuItem(title: "フレームレート", action: nil, keyEquivalent: "")
+        defaultRate.submenu = frameRateMenu(selected: frameRate, action: #selector(setFrameRate(_:)))
+        menu.addItem(defaultRate)
+
+        let defaultEdges = NSMenuItem(title: "枠の外に出たら解除する辺", action: nil, keyEquivalent: "")
+        defaultEdges.submenu = edgesMenu(selected: Set(Edge.allCases.filter(escapes)),
+                                         action: #selector(toggleEscapeEdge(_:)))
+        menu.addItem(defaultEdges)
 
         menu.addItem(.separator())
         if InteractionController.shared.isActive {
@@ -199,6 +193,101 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         return item
     }
 
+    // MARK: - Submenus
+
+    /// One window's own settings, reached through the window it belongs to.
+    private func settingsMenu(for controller: PiPWindowController) -> NSMenu {
+        let menu = NSMenu()
+
+        let interaction = InteractionController.shared
+        if interaction.isActive, interaction.displayID == controller.displayID {
+            let item = NSMenuItem(title: "操作モードを解除 (Control + Command + Esc)",
+                                  action: #selector(exitInteraction), keyEquivalent: "")
+            item.target = self
+            menu.addItem(item)
+            menu.addItem(.separator())
+        }
+
+        let onTop = NSMenuItem(title: "常に最前面", action: #selector(togglePiPAlwaysOnTop(_:)), keyEquivalent: "")
+        onTop.target = self
+        onTop.representedObject = controller
+        onTop.state = controller.alwaysOnTop ? .on : .off
+        menu.addItem(onTop)
+        menu.addItem(header(controller.alwaysOnTop ? "  Control + ↑ の Mission Control には出ません"
+                                                   : "  Control + ↑ の Mission Control に出ます"))
+
+        menu.addItem(.separator())
+        menu.addItem(header("フレームレート"))
+        for rate in Self.frameRates {
+            let item = NSMenuItem(title: "\(rate) fps", action: #selector(setPiPFrameRate(_:)), keyEquivalent: "")
+            item.target = self
+            item.representedObject = controller
+            item.tag = rate
+            item.state = rate == controller.frameRate ? .on : .off
+            menu.addItem(item)
+        }
+
+        menu.addItem(.separator())
+        menu.addItem(header("枠の外に出たら解除する辺"))
+        for edge in Edge.allCases {
+            let item = NSMenuItem(title: edge.label, action: #selector(togglePiPEscapeEdge(_:)), keyEquivalent: "")
+            item.target = self
+            item.representedObject = EdgeChoice(controller: controller, edge: edge)
+            item.state = controller.escapingEdges.contains(edge) ? .on : .off
+            menu.addItem(item)
+        }
+
+        menu.addItem(.separator())
+        let close = NSMenuItem(title: "この PiP を閉じる", action: #selector(closePiP(_:)), keyEquivalent: "")
+        close.target = self
+        close.representedObject = controller
+        menu.addItem(close)
+
+        return menu
+    }
+
+    private func placementMenu() -> NSMenu {
+        let menu = NSMenu()
+        for screen in NSScreen.screens {
+            let item = NSMenuItem(title: screen.localizedName, action: #selector(setPlacement(_:)), keyEquivalent: "")
+            item.target = self
+            item.representedObject = screen.localizedName
+            item.state = screen.localizedName == placementName ? .on : .off
+            menu.addItem(item)
+        }
+        if !NSScreen.screens.contains(where: { $0.localizedName == placementName }) {
+            let item = NSMenuItem(title: "\(placementName)（未接続）", action: nil, keyEquivalent: "")
+            item.isEnabled = false
+            item.state = .on
+            menu.addItem(item)
+        }
+        return menu
+    }
+
+    private func frameRateMenu(selected: Int, action: Selector) -> NSMenu {
+        let menu = NSMenu()
+        for rate in Self.frameRates {
+            let item = NSMenuItem(title: "\(rate) fps", action: action, keyEquivalent: "")
+            item.target = self
+            item.tag = rate
+            item.state = rate == selected ? .on : .off
+            menu.addItem(item)
+        }
+        return menu
+    }
+
+    private func edgesMenu(selected: Set<Edge>, action: Selector) -> NSMenu {
+        let menu = NSMenu()
+        for edge in Edge.allCases {
+            let item = NSMenuItem(title: edge.label, action: action, keyEquivalent: "")
+            item.target = self
+            item.representedObject = edge.rawValue
+            item.state = selected.contains(edge) ? .on : .off
+            menu.addItem(item)
+        }
+        return menu
+    }
+
     @objc private func togglePiP(_ sender: NSMenuItem) {
         guard let display = sender.representedObject as? SCDisplay else { return }
         if let existing = controllers[display.displayID] {
@@ -208,27 +297,62 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         // Step the new window clear of the ones already open, which all default to the same
         // corner and would otherwise hide each other completely.
         let controller = PiPWindowController(display: display, name: name(for: display),
-                                             on: placementScreen, alwaysOnTop: alwaysOnTop,
+                                             on: placementScreen,
+                                             alwaysOnTop: alwaysOnTop,
+                                             frameRate: frameRate,
+                                             escapingEdges: Set(Edge.allCases.filter(escapes)),
                                              cascade: controllers.count)
         controller.onClose = { [weak self] id in self?.controllers[id] = nil }
         controllers[display.displayID] = controller
-        controller.show(frameRate: frameRate)
+        controller.show()
     }
+
+    // MARK: - Per-window actions
+
+    @objc private func togglePiPAlwaysOnTop(_ sender: NSMenuItem) {
+        guard let controller = sender.representedObject as? PiPWindowController else { return }
+        controller.setAlwaysOnTop(!controller.alwaysOnTop)
+        Debug.log("\(controller.name): always on top = \(controller.alwaysOnTop)")
+    }
+
+    @objc private func setPiPFrameRate(_ sender: NSMenuItem) {
+        guard let controller = sender.representedObject as? PiPWindowController else { return }
+        controller.setFrameRate(sender.tag)
+    }
+
+    @objc private func togglePiPEscapeEdge(_ sender: NSMenuItem) {
+        guard let choice = sender.representedObject as? EdgeChoice else { return }
+        let controller = choice.controller
+        if controller.escapingEdges.contains(choice.edge) {
+            controller.escapingEdges.remove(choice.edge)
+        } else {
+            controller.escapingEdges.insert(choice.edge)
+        }
+        // Takes effect on the next click into the PiP; a live session keeps the edges it began
+        // with rather than having the walls move under the cursor.
+        Debug.log("\(controller.name): escaping edges = \(controller.escapingEdges.map(\.rawValue).sorted())")
+    }
+
+    @objc private func closePiP(_ sender: NSMenuItem) {
+        guard let controller = sender.representedObject as? PiPWindowController else { return }
+        controller.close()
+    }
+
+    // MARK: - Default actions
+
+    // These three set what the *next* PiP starts with. Open windows keep what they have —
+    // reaching in and changing a window from here would undo a choice made deliberately on that
+    // window, and there is no way to tell the two apart afterwards.
 
     @objc private func toggleEscapeEdge(_ sender: NSMenuItem) {
         guard let raw = sender.representedObject as? String, let edge = Edge(rawValue: raw) else { return }
         UserDefaults.standard.set(!escapes(edge), forKey: escapeKey(edge))
-        pushEscapingEdges()
-        Debug.log("escaping edges = \(InteractionController.shared.escapingEdges.map(\.rawValue).sorted())")
+        Debug.log("default escaping edges = \(Edge.allCases.filter(escapes).map(\.rawValue).sorted())")
     }
 
     @objc private func toggleAlwaysOnTop() {
         alwaysOnTop.toggle()
-        // Applied in place: reopening the windows would lose their size and position.
-        for controller in controllers.values {
-            controller.setAlwaysOnTop(alwaysOnTop)
-        }
-        Debug.log("always on top = \(alwaysOnTop)")
+        Debug.log("default always on top = \(alwaysOnTop)")
     }
 
     @objc private func setPlacement(_ sender: NSMenuItem) {
@@ -240,18 +364,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     @objc private func setFrameRate(_ sender: NSMenuItem) {
         frameRate = sender.tag
-        // Restart live captures at the new rate. The windows are rebuilt, so they land back on
-        // the cascade rather than where they were — one place each, at least, not one pile.
-        for (place, (id, controller)) in controllers.enumerated() {
-            guard let display = displays.first(where: { $0.displayID == id }) else { continue }
-            controller.close()
-            let replacement = PiPWindowController(display: display, name: name(for: display),
-                                                  on: placementScreen, alwaysOnTop: alwaysOnTop,
-                                                  cascade: place)
-            replacement.onClose = { [weak self] id in self?.controllers[id] = nil }
-            controllers[id] = replacement
-            replacement.show(frameRate: frameRate)
-        }
+        Debug.log("default frame rate = \(frameRate)")
     }
 
     @objc private func exitInteraction() {

@@ -54,7 +54,10 @@ final class InteractionController {
 
     /// Which sides let the cursor out. A side that does not is a wall: the cursor stops there
     /// instead, exactly as it does at the edge of a real monitor with nothing beyond it.
-    var escapingEdges: Set<Edge> = Set(Edge.allCases.filter(\.escapesByDefault))
+    ///
+    /// Set by whichever PiP is taking the mouse, since each carries its own choice and only one
+    /// display is ever being driven at a time.
+    private(set) var escapingEdges: Set<Edge> = Set(Edge.allCases.filter(\.escapesByDefault))
 
     /// Stamped on the events we post so the tap can let its own output pass.
     private static let magic: Int64 = 0x676A_5069_50    // "gjPiP"
@@ -104,9 +107,11 @@ final class InteractionController {
     @discardableResult
     func activate(displayID: CGDirectDisplayID,
                   at point: CGPoint,
+                  escapingEdges: Set<Edge>,
                   pipContentRect: @escaping () -> CGRect) -> Bool {
         if isActive { deactivate() }
         guard requestAccessibilityPermission() else { return false }
+        self.escapingEdges = escapingEdges
 
         let mask: CGEventMask =
             (1 << CGEventType.mouseMoved.rawValue) |

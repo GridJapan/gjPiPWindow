@@ -142,18 +142,23 @@ final class PiPContentView: NSView {
 final class PiPWindowController: NSObject, NSWindowDelegate {
 
     let displayID: CGDirectDisplayID
+    /// Shown as this window's row in the menu, so it is not private.
+    let name: String
     var onClose: ((CGDirectDisplayID) -> Void)?
 
     private let display: SCDisplay
-    private let name: String
     private let engine = CaptureEngine()
     private let panel: PiPPanel
     private let view: PiPContentView
 
-    init(display: SCDisplay, name: String, on screen: NSScreen?, alwaysOnTop: Bool, cascade: Int) {
+    init(display: SCDisplay, name: String, on screen: NSScreen?,
+         alwaysOnTop: Bool, frameRate: Int, escapingEdges: Set<Edge>, cascade: Int) {
         self.display = display
         self.displayID = display.displayID
         self.name = name
+        self.alwaysOnTop = alwaysOnTop
+        self.frameRate = frameRate
+        self.escapingEdges = escapingEdges
 
         let aspect = NSSize(width: display.width, height: display.height)
         let initial = Self.initialFrame(aspect: aspect, on: screen, cascade: cascade)
@@ -177,13 +182,41 @@ final class PiPWindowController: NSObject, NSWindowDelegate {
         }
     }
 
-    /// Applied to open windows too, so the menu toggle takes effect without reopening.
+    // MARK: - Settings
+    //
+    // Each PiP carries its own, because the windows are not interchangeable: one showing a
+    // virtual display you are working in wants a high frame rate and every edge open, while one
+    // you are only keeping an eye on can run at 30fps and stay out of the way. A single global
+    // set forced every window to be the same window.
+
+    private(set) var alwaysOnTop: Bool
+    private(set) var frameRate: Int
+    /// Handed to `InteractionController` on activation — interaction runs on one display at a
+    /// time, so the controller is asked for its edges when it takes the mouse rather than being
+    /// told to push them ahead of time.
+    var escapingEdges: Set<Edge>
+
     func setAlwaysOnTop(_ on: Bool) {
+        alwaysOnTop = on
         panel.setAlwaysOnTop(on)
     }
 
-    func show(frameRate: Int) {
+    /// Restarts the capture at the new rate without rebuilding the window, so its size and
+    /// position survive.
+    func setFrameRate(_ rate: Int) {
+        guard rate != frameRate else { return }
+        frameRate = rate
+        engine.stop()
+        startCapture()
+        Debug.log("\(name): frame rate → \(rate)")
+    }
+
+    func show() {
         panel.orderFront(nil)
+        startCapture()
+    }
+
+    private func startCapture() {
         Task {
             do {
                 try await engine.start(display: display, frameRate: frameRate)
@@ -224,6 +257,7 @@ final class PiPWindowController: NSObject, NSWindowDelegate {
         let ok = InteractionController.shared.activate(
             displayID: displayID,
             at: target,
+            escapingEdges: escapingEdges,
             pipContentRect: { [weak self] in self?.pictureRectInGlobalDisplayCoords() ?? .zero }
         )
         if !ok { presentAccessibilityNeeded() }
