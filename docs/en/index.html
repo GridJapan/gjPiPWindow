@@ -1,0 +1,344 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>gjPiP - Control virtual displays from PiP.</title>
+<meta name="description" content="A macOS menu bar app that shows any display, including virtual ones, in real-time PiP. Two clicks move your cursor there so you can control it directly. Free OSS under MIT.">
+<meta property="og:title" content="gjPiP - Control virtual displays from PiP.">
+<meta property="og:description" content="A macOS menu bar app that shows any display, including virtual ones, in real-time PiP. Two clicks move your cursor there so you can control it directly.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://gridjapan.github.io/gjPiPWindow/en/">
+<meta property="og:image" content="https://gridjapan.github.io/gjPiPWindow/assets/poster_1.jpg">
+<link rel="alternate" hreflang="en" href="https://gridjapan.github.io/gjPiPWindow/en/">
+<link rel="alternate" hreflang="ja" href="https://gridjapan.github.io/gjPiPWindow/jp/">
+<link rel="alternate" hreflang="zh-Hans" href="https://gridjapan.github.io/gjPiPWindow/zh/">
+<link rel="alternate" hreflang="ko" href="https://gridjapan.github.io/gjPiPWindow/ko/">
+<link rel="alternate" hreflang="km" href="https://gridjapan.github.io/gjPiPWindow/km/">
+<link rel="alternate" hreflang="x-default" href="https://gridjapan.github.io/gjPiPWindow/jp/">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%230A0E27'/%3E%3Crect x='4' y='6' width='24' height='16' fill='none' stroke='%235EDCF4' stroke-width='2'/%3E%3Crect x='16' y='14' width='10' height='7' fill='%23F4D03F'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Tektur:wght@400;700;900&family=Chakra+Petch:wght@400;500;700&family=JetBrains+Mono:wght@400;700&family=Noto+Sans+JP:wght@400;500;700;900&family=Noto+Sans+KR:wght@400;500;700&family=Noto+Sans+SC:wght@400;500;700&family=Noto+Sans+Khmer:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0A0E27; --ink:#FFFFFF; --a1:#F4D03F; --a2:#5EDCF4;
+  --surf:#ffffff10; --line:#ffffff22; --dim:#ffffffa0; --faint:#ffffff55;
+  --hf:"Tektur","Noto Sans JP","Noto Sans SC","Noto Sans KR","Noto Sans Khmer",sans-serif;
+  --bf:"Chakra Petch","Noto Sans JP","Noto Sans SC","Noto Sans KR","Noto Sans Khmer",sans-serif;
+  --mf:"JetBrains Mono",monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth;overflow-x:clip}
+body{background:var(--bg);color:var(--ink);font-family:var(--bf);line-height:1.7;
+  font-feature-settings:"palt" 1;overflow-x:hidden}
+::selection{background:var(--a1);color:var(--bg)}
+nav{position:sticky;top:0;z-index:50;display:flex;align-items:center;gap:22px;
+  padding:14px 28px;background:#0A0E27ee;backdrop-filter:blur(8px);
+  border-bottom:1px solid var(--line)}
+nav .logo{display:flex;align-items:center;gap:10px;font-family:var(--hf);
+  font-weight:900;font-size:19px;letter-spacing:.04em;color:var(--ink);text-decoration:none}
+nav .logo .px{width:14px;height:14px;background:var(--a1);box-shadow:18px 0 0 var(--a2)}
+nav .logo .px{margin-right:18px}
+nav a.lk{color:var(--dim);text-decoration:none;font-size:14px}
+nav a.lk:hover{color:var(--a2)}
+nav .gh{font-family:var(--mf);font-size:13px;color:var(--bg);
+  background:var(--a1);padding:7px 16px;border-radius:8px;text-decoration:none;font-weight:700}
+nav .gh:hover{background:#fff}
+.glow{position:absolute;border-radius:50%;pointer-events:none;opacity:.5;z-index:0}
+.pxgrid{position:absolute;display:grid;grid-template-columns:repeat(3,20px);gap:3px;
+  pointer-events:none;z-index:0;opacity:.85}
+.pxgrid i{width:20px;height:20px}
+.hero{position:relative;max-width:1180px;margin:0 auto;padding:84px 28px 70px;
+  display:grid;grid-template-columns:1.05fr 1fr;gap:48px;align-items:center}
+.hero .k{font-family:var(--mf);font-size:13px;letter-spacing:.3em;color:var(--a2)}
+.hero h1{font-family:var(--hf);font-weight:900;font-size:clamp(34px,4.6vw,54px);
+  line-height:1.28;margin:16px 0 0}
+.hero h1 em{font-style:normal;color:var(--a1)}
+.hero .sub{margin-top:20px;font-size:17px;color:var(--dim);max-width:560px}
+.hero .btns{display:flex;gap:14px;margin-top:30px;flex-wrap:wrap}
+.btn{font-family:var(--hf);font-weight:700;font-size:16px;text-decoration:none;
+  padding:13px 26px;border-radius:10px}
+.btn.p{background:var(--a1);color:var(--bg)}
+.btn.p:hover{background:#fff}
+.btn.s{border:1px solid var(--a2);color:var(--a2)}
+.btn.s:hover{background:#5EDCF41a}
+.chips{display:flex;gap:10px;margin-top:26px;flex-wrap:wrap}
+.chip{font-family:var(--mf);font-size:13px;color:var(--dim);
+  border:1px solid var(--line);border-radius:999px;padding:5px 14px}
+.hero .shot{position:relative;z-index:1}
+.hero .shot video{width:100%;display:block;border:1px solid var(--line);
+  border-radius:12px;box-shadow:0 20px 60px #00000080}
+.cap{font-family:var(--mf);font-size:12px;color:var(--faint);margin-top:10px;text-align:right}
+.whatpip{margin-top:22px;border:1px solid var(--line);border-left:5px solid var(--a2);
+  border-radius:10px;padding:13px 18px;max-width:560px;background:var(--surf)}
+.whatpip .t{font-family:var(--mf);font-size:12.5px;color:var(--a2);letter-spacing:.18em;margin-bottom:5px}
+.whatpip p{font-size:14.5px;color:var(--dim)}
+.band{max-width:1180px;margin:10px auto 0;padding:0 28px}
+.band-in{position:relative;overflow:hidden;background:var(--surf);
+  border:1px solid #F4D03F55;border-left:6px solid var(--a1);
+  border-radius:12px;padding:26px 30px}
+.band-in h2{font-family:var(--hf);font-weight:900;font-size:clamp(24px,3.4vw,34px);line-height:1.3}
+.band-in h2 em{font-style:normal;color:var(--a1)}
+.band-in p{margin-top:10px;font-size:15.5px;color:var(--dim);max-width:900px}
+.band-in a{color:var(--a2);text-decoration:none;font-weight:700}
+.band-in a:hover{text-decoration:underline}
+section{position:relative;max-width:1180px;margin:0 auto;padding:74px 28px 10px}
+.sh{display:flex;align-items:baseline;gap:16px;border-bottom:2px solid var(--a1);
+  padding-bottom:12px;margin-bottom:8px}
+.sh .no{font-family:var(--mf);font-size:14px;font-weight:700;letter-spacing:.12em;color:var(--a1)}
+.sh h2{font-family:var(--hf);font-size:clamp(24px,3vw,32px);font-weight:900;line-height:1.3}
+.sh .tl{margin-left:auto;font-size:14px;color:var(--faint);text-align:right;max-width:380px;line-height:1.5}
+.lede{margin:18px 0 26px;font-size:16.5px;color:var(--dim);max-width:820px}
+.lede b{color:var(--ink)}
+.demo{display:grid;grid-template-columns:1fr;gap:14px}
+.demo video{width:100%;display:block;border:1px solid var(--line);border-radius:12px;
+  background:#000;box-shadow:0 14px 44px #00000066}
+.gal{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-top:6px}
+.gal figure{background:var(--surf);border:1px solid var(--line);border-radius:10px;
+  padding:10px;margin:0}
+.gal img{width:100%;display:block;border-radius:6px}
+.gal figcaption{font-family:var(--mf);font-size:12.5px;color:var(--dim);
+  margin-top:9px;text-align:center}
+.gal .on figcaption{color:var(--a1)}
+.cards{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:8px}
+.card{background:var(--surf);border:1px solid var(--line);border-radius:10px;padding:18px 20px}
+.card h3{font-family:var(--hf);font-size:17.5px;font-weight:700;color:var(--a2);margin-bottom:7px}
+.card p{font-size:14.5px;color:var(--dim)}
+.twrap{overflow-x:auto;border:1px solid var(--line);border-radius:12px;margin-top:6px}
+table{border-collapse:collapse;width:100%;min-width:860px;font-size:14.5px}
+th,td{padding:11px 16px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+thead th{font-family:var(--hf);font-size:13.5px;color:var(--a1);background:#ffffff08;
+  white-space:nowrap}
+tbody th{font-weight:500;color:var(--ink);white-space:nowrap;background:#ffffff05}
+tbody tr:last-child th,tbody tr:last-child td{border-bottom:none}
+td{color:var(--dim)}
+.ok{color:var(--a1);font-weight:700}
+.ok2{color:var(--a2);font-weight:700}
+.no2{color:var(--faint)}
+.src{font-size:13px;color:var(--faint);margin-top:12px}
+pre{background:#050814;border:1px solid var(--line);border-radius:10px;
+  padding:18px 20px;overflow-x:auto;font-family:var(--mf);font-size:13.5px;
+  line-height:1.8;color:#d7e3ff;margin:14px 0}
+pre .c{color:#6b7a99}
+.note{font-size:14px;color:var(--dim);margin-top:8px}
+footer{margin-top:90px;border-top:1px solid var(--line);padding:34px 28px 46px;
+  text-align:center;font-size:13.5px;color:var(--faint)}
+footer a{color:var(--a2);text-decoration:none}
+
+/* ===== language switcher ===== */
+.langsw{display:flex;gap:2px;align-items:center;font-family:var(--mf);font-size:12.5px;flex-wrap:wrap}
+.langsw a{color:var(--dim);text-decoration:none;padding:3px 8px;border-radius:6px;line-height:1.4}
+.langsw a:hover{color:var(--a2)}
+.langsw a.on{color:var(--bg);background:var(--a2);font-weight:700}
+@media (max-width:560px){.langsw{font-size:11.5px;gap:0}.langsw a{padding:3px 5px}}
+
+@media (max-width:900px){
+  .hero{grid-template-columns:1fr;padding-top:56px}
+  .cards{grid-template-columns:1fr 1fr}
+  .gal{grid-template-columns:1fr 1fr}
+  .sh .tl{display:none}
+}
+@media (max-width:560px){
+  .cards{grid-template-columns:1fr}
+  nav a.lk{display:none}
+}
+</style>
+</head>
+<body>
+
+<nav>
+  <a class="logo" href="./"><span class="px"></span>gjPiP</a>
+  <a class="lk" href="#demo">Demo</a>
+  <a class="lk" href="#filters">Video Filters</a>
+  <a class="lk" href="#features">Features</a>
+  <a class="lk" href="#compare">Compare</a>
+  <a class="lk" href="#install">Install</a>
+  <span style="margin-left:auto"></span>
+  <div class="langsw"><a class="on" href="./" hreflang="en">EN</a><a href="../jp/" hreflang="ja">日本語</a><a href="../zh/" hreflang="zh-Hans">中文</a><a href="../ko/" hreflang="ko">한국어</a><a href="../km/" hreflang="km">ខ្មែរ</a></div>
+  <a class="gh" href="https://github.com/GridJapan/gjPiPWindow">GitHub</a>
+</nav>
+
+<div class="hero">
+  <div class="glow" style="top:-120px;right:-100px;width:420px;height:420px;background:radial-gradient(circle,#F4D03F 0%,transparent 68%)"></div>
+  <div class="glow" style="bottom:-140px;left:-120px;width:380px;height:380px;background:radial-gradient(circle,#5EDCF4 0%,transparent 68%)"></div>
+  <div class="pxgrid" style="top:120px;right:44%">
+    <i style="background:#5EDCF4"></i><i style="background:#F4D03F"></i><i style="background:#5EDCF4"></i>
+    <i style="background:#5EDCF4"></i><i style="background:#F4D03F"></i><i style="background:#5EDCF4"></i>
+  </div>
+  <div style="position:relative;z-index:1">
+    <div class="k">GRIDJAPAN ／ MACOS MENU BAR APP</div>
+    <h1>Control virtual displays<br>from <em>PiP</em>.</h1>
+    <p class="sub">A macOS menu bar app that shows any display, including virtual ones, in real-time PiP. Two clicks move your cursor there so you can control it directly.</p>
+    <div class="whatpip">
+      <div class="t">What is PiP?</div>
+      <p>PiP (Picture-in-Picture) keeps video in a small floating window above everything else. It is the same idea as YouTube mini-player mode, except gjPiP floats <b>the display itself</b>, not a video.</p>
+    </div>
+    <div class="btns">
+      <a class="btn p" href="https://github.com/GridJapan/gjPiPWindow">View Source on GitHub</a>
+      <a class="btn s" href="#install">Installation Guide</a>
+    </div>
+    <div class="chips">
+      <span class="chip">macOS 14+</span>
+      <span class="chip">Swift</span>
+      <span class="chip">ScreenCaptureKit</span>
+      <span class="chip">Free OSS (MIT)</span>
+    </div>
+  </div>
+  <div class="shot">
+    <video src="../assets/1_mirror.mp4" poster="../assets/poster_1.jpg" autoplay loop muted playsinline></video>
+    <div class="cap">Live recording of the main monitor shown in PiP (actual speed)</div>
+  </div>
+</div>
+
+<div class="band" id="pitch">
+  <div class="band-in">
+    <h2>You do not need <em>$21.99</em> for PiP.</h2>
+    <p>In BetterDisplay, PiP and video filters are Pro features ($21.99 one-time purchase). gjPiP delivers the same class of features for <b>free under MIT</b>, and adds <b>mouse control through PiP</b>, a feature not listed in BetterDisplay's official docs. <a href="#compare">See the comparison →</a></p>
+  </div>
+</div>
+
+<section id="demo">
+  <div class="sh">
+    <span class="no">01</span>
+    <h2>Show your main monitor in PiP, and it becomes an infinite mirror</h2>
+    <span class="tl">Live capture, not a recording.</span>
+  </div>
+  <p class="lede">The PiP (Picture-in-Picture) content is a <b>live capture</b>. Since the display includes the PiP window that is showing it, dragging the window moves the entire mirror tunnel with it.</p>
+  <div class="demo">
+    <video src="../assets/1_mirror.mp4" poster="../assets/poster_1.jpg" autoplay loop muted playsinline></video>
+  </div>
+  <div class="cap">Actual speed</div>
+</section>
+
+<section>
+  <div class="sh">
+    <span class="no">02</span>
+    <h2>Two clicks in PiP → your cursor moves there</h2>
+    <span class="tl">Interaction mode.</span>
+  </div>
+  <p class="lede">The first click focuses the window. The second click enters <b>control mode</b>. Your cursor moves to the other display, and your physical mouse controls it directly. Move to the window edge to return to reality. If you ever get stuck, press Esc five times quickly to force an exit.</p>
+  <div class="demo">
+    <video src="../assets/2_interact.mp4" poster="../assets/poster_2.jpg" autoplay loop muted playsinline></video>
+  </div>
+  <div class="cap">1.3x speed / Shown display is a virtual display with no physical monitor (1280×720)</div>
+</section>
+
+<section>
+  <div class="sh">
+    <span class="no">03</span>
+    <h2>Gather every PiP on your main monitor with one command</h2>
+    <span class="tl">Gather.</span>
+  </div>
+  <p class="lede">If you lose a PiP off-screen or on a virtual display, bring it back with <b>Gather All PiP on Main Monitor</b> from the menu.</p>
+  <div class="demo">
+    <video src="../assets/3_gather.mp4" poster="../assets/poster_3.jpg" autoplay loop muted playsinline></video>
+  </div>
+  <div class="cap">1.4x speed</div>
+</section>
+
+<section id="filters">
+  <div class="sh">
+    <span class="no">04</span>
+    <h2>Apply 17 video filters per PiP</h2>
+    <span class="tl">Core Image, chained.</span>
+  </div>
+  <p class="lede">Basic adjustments (brightness, contrast, saturation, hue, color temperature, gamma), sharpen and blur, plus effects (invert colors, sepia, monochrome, vignette, edge detection, crystallize, hexagonal pixelate). You can <b>apply multiple filters at once</b>, and clearing them restores the original image. Filters run on the GPU, so the capture path stays zero-copy.</p>
+  <div class="gal">
+    <figure><img src="../assets/filter_base.png" alt="OFF" loading="lazy"><figcaption>OFF</figcaption></figure>
+    <figure class="on"><img src="../assets/filter_sepia.png" alt="Sepia" loading="lazy"><figcaption>Sepia</figcaption></figure>
+    <figure class="on"><img src="../assets/filter_chain.png" alt="Sepia + Crystallize (applied together)" loading="lazy"><figcaption>Sepia + Crystallize (applied together)</figcaption></figure>
+    <figure class="on"><img src="../assets/filter_invert.png" alt="Invert Colors" loading="lazy"><figcaption>Invert Colors</figcaption></figure>
+  </div>
+  <div class="cap">Actual screenshot</div>
+</section>
+
+<section id="features">
+  <div class="sh">
+    <span class="no">05</span>
+    <h2>Features</h2>
+  </div>
+  <div class="cards">
+    <div class="card"><h3>Multiple PiP windows at once</h3><p>Open a PiP for each display. Each one is an independent capture.</p></div>
+    <div class="card"><h3>Per-PiP settings</h3><p>Set always-on-top, frame rate, exit edges, and filters separately for each window.</p></div>
+    <div class="card"><h3>Always on top</h3><p>Off by default. Turn it on to keep the window from being covered by other windows, though it will no longer appear in Mission Control.</p></div>
+    <div class="card"><h3>Return to reality by moving to the screen edge</h3><p>Exiting control mode feels the same as moving out of a monitor. You can enable or disable each exit edge independently. By default, only the bottom edge is off because that is where the Dock appears.</p></div>
+    <div class="card"><h3>Frame rate</h3><p>Switch each PiP between 30, 60, and 120 fps.</p></div>
+    <div class="card"><h3>Force exit</h3><p>Press Esc five times quickly, or press Control + Command + Esc, to recover your mouse at any time.</p></div>
+  </div>
+</section>
+
+<section id="compare">
+  <div class="sh">
+    <span class="no">06</span>
+    <h2>Compare</h2>
+  </div>
+  <p class="lede">Here are the key differences from BetterDisplay Pro. gjPiP provides <b>PiP features comparable to BetterDisplay Pro ($21.99) for free</b>. <b>Mouse control through PiP</b> is not listed in BetterDisplay's official README. Crop, rotation, and zoom are not implemented yet.</p>
+  <div class="twrap">
+  <table>
+    <thead>
+      <tr><th>Item</th><th>BetterDisplay</th><th>FreeDisplay (official)</th><th>GridJapan/FreeDisplay</th><th>GridJapan/gjPiPWindow</th></tr>
+    </thead>
+    <tbody>
+      <tr><th>Price</th><td>Free version + Pro $21.99</td><td class="ok">Free</td><td class="ok">Free</td><td class="ok">Free</td></tr>
+      <tr><th>Source available</th><td class="no2">×</td><td class="ok">◎</td><td class="ok">◎</td><td class="ok">◎</td></tr>
+      <tr><th>DDC control (brightness and contrast)</th><td class="ok">◎</td><td class="ok">◎</td><td class="ok">◎ + crash fix</td><td class="no2">−</td></tr>
+      <tr><th>HiDPI virtual displays</th><td class="ok">◎ (flexible HiDPI is Pro)</td><td class="ok">◎</td><td class="ok">◎ + remembers resolution</td><td class="no2">−</td></tr>
+      <tr><th>Display arrangement</th><td class="ok">◎</td><td class="ok">◎</td><td class="ok">◎ + main display rollback fix</td><td class="no2">−</td></tr>
+      <tr><th>Picture in Picture</th><td>◎ (Pro)</td><td class="no2">×</td><td class="no2">×</td><td class="ok2">◎ Free</td></tr>
+      <tr><th>Mouse control through PiP</th><td class="no2">Not listed</td><td class="no2">×</td><td class="no2">×</td><td class="ok2">◎ control mode</td></tr>
+      <tr><th>Video filters</th><td>◎ (Pro)</td><td class="no2">×</td><td class="no2">×</td><td class="ok2">◎ 17 filters, stackable</td></tr>
+      <tr><th>Fixes for 4 known bugs</th><td class="no2">−</td><td class="no2">× (bugs present)</td><td class="ok">◎ fixed</td><td class="no2">−</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p class="src">The BetterDisplay column is based on the official GitHub README and betterdisplay.pro as of 2026-07. "Not listed" means no description of that feature was found in the official materials. The FreeDisplay column is based on the code and README in the GridJapan/FreeDisplay repository.</p>
+</section>
+
+<section id="install">
+  <div class="sh">
+    <span class="no">07</span>
+    <h2>Install</h2>
+  </div>
+  <p class="lede">Build from source. TCC (screen recording and accessibility) grants permissions only to signed .app bundles, so make sure to use <b>build.sh</b>.</p>
+<pre><span class="c"># Create a self-signed certificate (one time only; permissions will survive rebuilds)</span>
+./make-signing-cert.sh
+
+<span class="c"># Build and launch</span>
+./build.sh
+open build/gjPiP.app</pre>
+  <div class="twrap">
+  <table>
+    <thead><tr><th>Permission</th><th>Use</th><th>Location</th></tr></thead>
+    <tbody>
+      <tr><th>Screen Recording</th><td>Capturing displays</td><td>Privacy & Security → Screen & System Audio Recording</td></tr>
+      <tr><th>Accessibility</th><td>Control mode (handing off the mouse)</td><td>Privacy & Security → Accessibility</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p class="note">Restart the app after granting either permission. Permission dialogs may appear on another display.</p>
+</section>
+
+<section>
+  <div class="sh">
+    <span class="no">08</span>
+    <h2>Use it with FreeDisplay</h2>
+  </div>
+  <p class="lede">The virtual displays themselves are created by <a href="https://github.com/GridJapan/FreeDisplay" style="color:var(--a2)">GridJapan/FreeDisplay</a>. This fork fixes four bugs still present in official FreeDisplay (DDC crash, empty menus, main display setting rollback, and failure to create a third display) and remembers virtual display resolutions. gjPiP is the app that shows and controls those invisible screens.</p>
+  <div class="gal" style="grid-template-columns:1fr 1fr;align-items:start">
+    <figure><img src="../assets/settings_arrange.png" alt="System Settings "Arrange Displays" - three physical displays plus three virtual displays" loading="lazy">
+      <figcaption>System Settings "Arrange Displays" - three physical displays plus three virtual displays</figcaption></figure>
+    <figure><img src="../assets/settings_fd3.png" alt="Virtual displays also offer resolution and refresh rate (75Hz) options" loading="lazy">
+      <figcaption>Virtual displays also offer resolution and refresh rate (75Hz) options</figcaption></figure>
+  </div>
+  <div class="cap">Actual macOS System Settings screenshots</div>
+</section>
+
+<footer>
+  <p>gjPiP ／ <a href="https://github.com/GridJapan/gjPiPWindow">GridJapan/gjPiPWindow</a> ・
+  <a href="https://github.com/GridJapan/FreeDisplay">GridJapan/FreeDisplay</a></p>
+  <p style="margin-top:8px">© 2026 GridJapan Inc. / MIT License</p>
+</footer>
+
+</body>
+</html>

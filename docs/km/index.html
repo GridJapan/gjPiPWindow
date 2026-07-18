@@ -1,0 +1,344 @@
+<!doctype html>
+<html lang="km">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>gjPiP — គ្រប់គ្រងអេក្រង់និម្មិតពី PiP។</title>
+<meta name="description" content="ស្ថិតនៅលើរបារម៉ឺនុយរបស់ macOS ហើយបង្ហាញអេក្រង់ណាមួយ (រួមទាំងអេក្រង់និម្មិត) ជា PiP ពេលវេលាពិត។ ចុច 2 ដង ទ្រនិចនឹងផ្លាស់ទី ហើយអ្នកអាចគ្រប់គ្រងបានភ្លាមៗ។ ឥតគិតថ្លៃ / OSS (MIT)។">
+<meta property="og:title" content="gjPiP — គ្រប់គ្រងអេក្រង់និម្មិតពី PiP។">
+<meta property="og:description" content="ស្ថិតនៅលើរបារម៉ឺនុយរបស់ macOS ហើយបង្ហាញអេក្រង់ណាមួយ (រួមទាំងអេក្រង់និម្មិត) ជា PiP ពេលវេលាពិត។ ចុច 2 ដង ទ្រនិចនឹងផ្លាស់ទី ហើយអ្នកអាចគ្រប់គ្រងបានភ្លាមៗ។">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://gridjapan.github.io/gjPiPWindow/km/">
+<meta property="og:image" content="https://gridjapan.github.io/gjPiPWindow/assets/poster_1.jpg">
+<link rel="alternate" hreflang="en" href="https://gridjapan.github.io/gjPiPWindow/en/">
+<link rel="alternate" hreflang="ja" href="https://gridjapan.github.io/gjPiPWindow/jp/">
+<link rel="alternate" hreflang="zh-Hans" href="https://gridjapan.github.io/gjPiPWindow/zh/">
+<link rel="alternate" hreflang="ko" href="https://gridjapan.github.io/gjPiPWindow/ko/">
+<link rel="alternate" hreflang="km" href="https://gridjapan.github.io/gjPiPWindow/km/">
+<link rel="alternate" hreflang="x-default" href="https://gridjapan.github.io/gjPiPWindow/jp/">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%230A0E27'/%3E%3Crect x='4' y='6' width='24' height='16' fill='none' stroke='%235EDCF4' stroke-width='2'/%3E%3Crect x='16' y='14' width='10' height='7' fill='%23F4D03F'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Tektur:wght@400;700;900&family=Chakra+Petch:wght@400;500;700&family=JetBrains+Mono:wght@400;700&family=Noto+Sans+JP:wght@400;500;700;900&family=Noto+Sans+KR:wght@400;500;700&family=Noto+Sans+SC:wght@400;500;700&family=Noto+Sans+Khmer:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0A0E27; --ink:#FFFFFF; --a1:#F4D03F; --a2:#5EDCF4;
+  --surf:#ffffff10; --line:#ffffff22; --dim:#ffffffa0; --faint:#ffffff55;
+  --hf:"Tektur","Noto Sans JP","Noto Sans SC","Noto Sans KR","Noto Sans Khmer",sans-serif;
+  --bf:"Chakra Petch","Noto Sans JP","Noto Sans SC","Noto Sans KR","Noto Sans Khmer",sans-serif;
+  --mf:"JetBrains Mono",monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth;overflow-x:clip}
+body{background:var(--bg);color:var(--ink);font-family:var(--bf);line-height:1.7;
+  font-feature-settings:"palt" 1;overflow-x:hidden}
+::selection{background:var(--a1);color:var(--bg)}
+nav{position:sticky;top:0;z-index:50;display:flex;align-items:center;gap:22px;
+  padding:14px 28px;background:#0A0E27ee;backdrop-filter:blur(8px);
+  border-bottom:1px solid var(--line)}
+nav .logo{display:flex;align-items:center;gap:10px;font-family:var(--hf);
+  font-weight:900;font-size:19px;letter-spacing:.04em;color:var(--ink);text-decoration:none}
+nav .logo .px{width:14px;height:14px;background:var(--a1);box-shadow:18px 0 0 var(--a2)}
+nav .logo .px{margin-right:18px}
+nav a.lk{color:var(--dim);text-decoration:none;font-size:14px}
+nav a.lk:hover{color:var(--a2)}
+nav .gh{font-family:var(--mf);font-size:13px;color:var(--bg);
+  background:var(--a1);padding:7px 16px;border-radius:8px;text-decoration:none;font-weight:700}
+nav .gh:hover{background:#fff}
+.glow{position:absolute;border-radius:50%;pointer-events:none;opacity:.5;z-index:0}
+.pxgrid{position:absolute;display:grid;grid-template-columns:repeat(3,20px);gap:3px;
+  pointer-events:none;z-index:0;opacity:.85}
+.pxgrid i{width:20px;height:20px}
+.hero{position:relative;max-width:1180px;margin:0 auto;padding:84px 28px 70px;
+  display:grid;grid-template-columns:1.05fr 1fr;gap:48px;align-items:center}
+.hero .k{font-family:var(--mf);font-size:13px;letter-spacing:.3em;color:var(--a2)}
+.hero h1{font-family:var(--hf);font-weight:900;font-size:clamp(34px,4.6vw,54px);
+  line-height:1.28;margin:16px 0 0}
+.hero h1 em{font-style:normal;color:var(--a1)}
+.hero .sub{margin-top:20px;font-size:17px;color:var(--dim);max-width:560px}
+.hero .btns{display:flex;gap:14px;margin-top:30px;flex-wrap:wrap}
+.btn{font-family:var(--hf);font-weight:700;font-size:16px;text-decoration:none;
+  padding:13px 26px;border-radius:10px}
+.btn.p{background:var(--a1);color:var(--bg)}
+.btn.p:hover{background:#fff}
+.btn.s{border:1px solid var(--a2);color:var(--a2)}
+.btn.s:hover{background:#5EDCF41a}
+.chips{display:flex;gap:10px;margin-top:26px;flex-wrap:wrap}
+.chip{font-family:var(--mf);font-size:13px;color:var(--dim);
+  border:1px solid var(--line);border-radius:999px;padding:5px 14px}
+.hero .shot{position:relative;z-index:1}
+.hero .shot video{width:100%;display:block;border:1px solid var(--line);
+  border-radius:12px;box-shadow:0 20px 60px #00000080}
+.cap{font-family:var(--mf);font-size:12px;color:var(--faint);margin-top:10px;text-align:right}
+.whatpip{margin-top:22px;border:1px solid var(--line);border-left:5px solid var(--a2);
+  border-radius:10px;padding:13px 18px;max-width:560px;background:var(--surf)}
+.whatpip .t{font-family:var(--mf);font-size:12.5px;color:var(--a2);letter-spacing:.18em;margin-bottom:5px}
+.whatpip p{font-size:14.5px;color:var(--dim)}
+.band{max-width:1180px;margin:10px auto 0;padding:0 28px}
+.band-in{position:relative;overflow:hidden;background:var(--surf);
+  border:1px solid #F4D03F55;border-left:6px solid var(--a1);
+  border-radius:12px;padding:26px 30px}
+.band-in h2{font-family:var(--hf);font-weight:900;font-size:clamp(24px,3.4vw,34px);line-height:1.3}
+.band-in h2 em{font-style:normal;color:var(--a1)}
+.band-in p{margin-top:10px;font-size:15.5px;color:var(--dim);max-width:900px}
+.band-in a{color:var(--a2);text-decoration:none;font-weight:700}
+.band-in a:hover{text-decoration:underline}
+section{position:relative;max-width:1180px;margin:0 auto;padding:74px 28px 10px}
+.sh{display:flex;align-items:baseline;gap:16px;border-bottom:2px solid var(--a1);
+  padding-bottom:12px;margin-bottom:8px}
+.sh .no{font-family:var(--mf);font-size:14px;font-weight:700;letter-spacing:.12em;color:var(--a1)}
+.sh h2{font-family:var(--hf);font-size:clamp(24px,3vw,32px);font-weight:900;line-height:1.3}
+.sh .tl{margin-left:auto;font-size:14px;color:var(--faint);text-align:right;max-width:380px;line-height:1.5}
+.lede{margin:18px 0 26px;font-size:16.5px;color:var(--dim);max-width:820px}
+.lede b{color:var(--ink)}
+.demo{display:grid;grid-template-columns:1fr;gap:14px}
+.demo video{width:100%;display:block;border:1px solid var(--line);border-radius:12px;
+  background:#000;box-shadow:0 14px 44px #00000066}
+.gal{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-top:6px}
+.gal figure{background:var(--surf);border:1px solid var(--line);border-radius:10px;
+  padding:10px;margin:0}
+.gal img{width:100%;display:block;border-radius:6px}
+.gal figcaption{font-family:var(--mf);font-size:12.5px;color:var(--dim);
+  margin-top:9px;text-align:center}
+.gal .on figcaption{color:var(--a1)}
+.cards{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:8px}
+.card{background:var(--surf);border:1px solid var(--line);border-radius:10px;padding:18px 20px}
+.card h3{font-family:var(--hf);font-size:17.5px;font-weight:700;color:var(--a2);margin-bottom:7px}
+.card p{font-size:14.5px;color:var(--dim)}
+.twrap{overflow-x:auto;border:1px solid var(--line);border-radius:12px;margin-top:6px}
+table{border-collapse:collapse;width:100%;min-width:860px;font-size:14.5px}
+th,td{padding:11px 16px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+thead th{font-family:var(--hf);font-size:13.5px;color:var(--a1);background:#ffffff08;
+  white-space:nowrap}
+tbody th{font-weight:500;color:var(--ink);white-space:nowrap;background:#ffffff05}
+tbody tr:last-child th,tbody tr:last-child td{border-bottom:none}
+td{color:var(--dim)}
+.ok{color:var(--a1);font-weight:700}
+.ok2{color:var(--a2);font-weight:700}
+.no2{color:var(--faint)}
+.src{font-size:13px;color:var(--faint);margin-top:12px}
+pre{background:#050814;border:1px solid var(--line);border-radius:10px;
+  padding:18px 20px;overflow-x:auto;font-family:var(--mf);font-size:13.5px;
+  line-height:1.8;color:#d7e3ff;margin:14px 0}
+pre .c{color:#6b7a99}
+.note{font-size:14px;color:var(--dim);margin-top:8px}
+footer{margin-top:90px;border-top:1px solid var(--line);padding:34px 28px 46px;
+  text-align:center;font-size:13.5px;color:var(--faint)}
+footer a{color:var(--a2);text-decoration:none}
+
+/* ===== language switcher ===== */
+.langsw{display:flex;gap:2px;align-items:center;font-family:var(--mf);font-size:12.5px;flex-wrap:wrap}
+.langsw a{color:var(--dim);text-decoration:none;padding:3px 8px;border-radius:6px;line-height:1.4}
+.langsw a:hover{color:var(--a2)}
+.langsw a.on{color:var(--bg);background:var(--a2);font-weight:700}
+@media (max-width:560px){.langsw{font-size:11.5px;gap:0}.langsw a{padding:3px 5px}}
+
+@media (max-width:900px){
+  .hero{grid-template-columns:1fr;padding-top:56px}
+  .cards{grid-template-columns:1fr 1fr}
+  .gal{grid-template-columns:1fr 1fr}
+  .sh .tl{display:none}
+}
+@media (max-width:560px){
+  .cards{grid-template-columns:1fr}
+  nav a.lk{display:none}
+}
+</style>
+</head>
+<body>
+
+<nav>
+  <a class="logo" href="./"><span class="px"></span>gjPiP</a>
+  <a class="lk" href="#demo">ដេម៉ូ</a>
+  <a class="lk" href="#filters">តម្រងវីដេអូ</a>
+  <a class="lk" href="#features">មុខងារ</a>
+  <a class="lk" href="#compare">ប្រៀបធៀប</a>
+  <a class="lk" href="#install">ដំឡើង</a>
+  <span style="margin-left:auto"></span>
+  <div class="langsw"><a href="../en/" hreflang="en">EN</a><a href="../jp/" hreflang="ja">日本語</a><a href="../zh/" hreflang="zh-Hans">中文</a><a href="../ko/" hreflang="ko">한국어</a><a class="on" href="./" hreflang="km">ខ្មែរ</a></div>
+  <a class="gh" href="https://github.com/GridJapan/gjPiPWindow">GitHub</a>
+</nav>
+
+<div class="hero">
+  <div class="glow" style="top:-120px;right:-100px;width:420px;height:420px;background:radial-gradient(circle,#F4D03F 0%,transparent 68%)"></div>
+  <div class="glow" style="bottom:-140px;left:-120px;width:380px;height:380px;background:radial-gradient(circle,#5EDCF4 0%,transparent 68%)"></div>
+  <div class="pxgrid" style="top:120px;right:44%">
+    <i style="background:#5EDCF4"></i><i style="background:#F4D03F"></i><i style="background:#5EDCF4"></i>
+    <i style="background:#5EDCF4"></i><i style="background:#F4D03F"></i><i style="background:#5EDCF4"></i>
+  </div>
+  <div style="position:relative;z-index:1">
+    <div class="k">GRIDJAPAN ／ MACOS MENU BAR APP</div>
+    <h1>គ្រប់គ្រងអេក្រង់និម្មិត<br>ពី <em>PiP</em>។</h1>
+    <p class="sub">ស្ថិតនៅលើរបារម៉ឺនុយរបស់ macOS ហើយបង្ហាញអេក្រង់ណាមួយ (រួមទាំងអេក្រង់និម្មិត) ជា PiP ពេលវេលាពិត។ ចុច 2 ដង ទ្រនិចនឹងផ្លាស់ទី ហើយអ្នកអាចគ្រប់គ្រងបានភ្លាមៗ។</p>
+    <div class="whatpip">
+      <div class="t">PiP ជាអ្វី?</div>
+      <p>PiP（Picture-in-Picture）គឺជាវិធីបង្ហាញវីដេអូក្នុងបង្អួចតូចអណ្ដែតនៅលើគេ។ វាដូចការចាក់វីដេអូក្នុងបង្អួចតូចរបស់ YouTube ប៉ុន្តែអ្វីដែល gjPiP បង្ហាញមិនមែនវីដេអូទេ គឺជា<b>អេក្រង់នោះផ្ទាល់</b>។</p>
+    </div>
+    <div class="btns">
+      <a class="btn p" href="https://github.com/GridJapan/gjPiPWindow">មើលកូដប្រភពនៅ GitHub</a>
+      <a class="btn s" href="#install">វិធីដំឡើង</a>
+    </div>
+    <div class="chips">
+      <span class="chip">macOS 14+</span>
+      <span class="chip">Swift</span>
+      <span class="chip">ScreenCaptureKit</span>
+      <span class="chip">ឥតគិតថ្លៃ / OSS (MIT)</span>
+    </div>
+  </div>
+  <div class="shot">
+    <video src="../assets/1_mirror.mp4" poster="../assets/poster_1.jpg" autoplay loop muted playsinline></video>
+    <div class="cap">វីដេអូថតពិតនៃម៉ូនីទ័រចម្បងខ្លួនឯងក្នុង PiP (ល្បឿនដើម)</div>
+  </div>
+</div>
+
+<div class="band" id="pitch">
+  <div class="band-in">
+    <h2>មិនបាច់ចំណាយ <em>$21.99</em> សម្រាប់ PiP ទេ។</h2>
+    <p>នៅក្នុង BetterDisplay, PiP និងតម្រងវីដេអូជាមុខងារ Pro ($21.99・ទិញម្ដង)។ gjPiP ផ្តល់មុខងារប្រភេទដូចគ្នា<b>ដោយឥតគិតថ្លៃ・MIT</b> ហើយថែមទាំងមាន<b>ការគ្រប់គ្រងម៉ៅស៍តាមរយៈ PiP</b> ដែលមិនមានរៀបរាប់ក្នុងឯកសារផ្លូវការរបស់ BetterDisplay។ <a href="#compare">មើលតារាងប្រៀបធៀប →</a></p>
+  </div>
+</div>
+
+<section id="demo">
+  <div class="sh">
+    <span class="no">01</span>
+    <h2>ពេលបង្ហាញម៉ូនីទ័រចម្បងក្នុង PiP វាក្លាយជាកញ្ចក់គ្មានទីបញ្ចប់</h2>
+    <span class="tl">Live capture, not a recording.</span>
+  </div>
+  <p class="lede">មាតិកាក្នុង PiP（Picture-in-Picture）គឺជា<b>ការចាប់យកផ្ទាល់</b>។ ព្រោះអេក្រង់ដែលបង្ហាញមានខ្លួនវាចូលទៅក្នុងនោះ នៅពេលអូសបង្អួច ផ្លូវរូងកញ្ចក់ទាំងមូលក៏ផ្លាស់ទីតាម។</p>
+  <div class="demo">
+    <video src="../assets/1_mirror.mp4" poster="../assets/poster_1.jpg" autoplay loop muted playsinline></video>
+  </div>
+  <div class="cap">ល្បឿនដើម</div>
+</section>
+
+<section>
+  <div class="sh">
+    <span class="no">02</span>
+    <h2>ចុច 2 ដងក្នុង PiP → ទ្រនិចផ្លាស់ទី</h2>
+    <span class="tl">Interaction mode.</span>
+  </div>
+  <p class="lede">ចុចលើកទី 1 ដើម្បីផ្តោត លើកទី 2 ដើម្បីចូល<b>របៀបគ្រប់គ្រង</b>។ ទ្រនិចនឹងផ្លាស់ទៅអេក្រង់ម្ខាងទៀត ហើយម៉ៅស៍ពិតរបស់អ្នកនឹងបញ្ជាអេក្រង់នោះ។ បើរំកិលដល់គែមបង្អួច អ្នកនឹងត្រឡប់មកអេក្រង់ពិតវិញ។ ពេលមានបញ្ហា ចុច Esc ជាប់ៗគ្នា 5 ដង ដើម្បីចេញដោយបង្ខំ។</p>
+  <div class="demo">
+    <video src="../assets/2_interact.mp4" poster="../assets/poster_2.jpg" autoplay loop muted playsinline></video>
+  </div>
+  <div class="cap">ល្បឿន 1.3 ដង ／ ដែលកំពុងបង្ហាញគឺអេក្រង់និម្មិតគ្មានម៉ូនីទ័រពិត (1280×720)</div>
+</section>
+
+<section>
+  <div class="sh">
+    <span class="no">03</span>
+    <h2>ប្រមូល PiP ទាំងអស់ទៅម៉ូនីទ័រចម្បងដោយចុចតែម្តង</h2>
+    <span class="tl">Gather.</span>
+  </div>
+  <p class="lede">បើអ្នកបាត់ PiP នៅក្រៅអេក្រង់ ឬនៅលើអេក្រង់និម្មិត អាចហៅវាត្រឡប់មកវិញតាមម៉ឺនុយ<b>「ប្រមូល PiP ទាំងអស់ទៅម៉ូនីទ័រចម្បង」</b>។</p>
+  <div class="demo">
+    <video src="../assets/3_gather.mp4" poster="../assets/poster_3.jpg" autoplay loop muted playsinline></video>
+  </div>
+  <div class="cap">ល្បឿន 1.4 ដង</div>
+</section>
+
+<section id="filters">
+  <div class="sh">
+    <span class="no">04</span>
+    <h2>ដាក់តម្រងវីដេអូ 17 ប្រភេទលើ PiP នីមួយៗ</h2>
+    <span class="tl">Core Image, chained.</span>
+  </div>
+  <p class="lede">ការកែតម្រូវមូលដ្ឋាន (ពន្លឺ・កម្រិតផ្ទុយ・ភាពឆ្អែតពណ៌・លាំពណ៌・សីតុណ្ហភាពពណ៌・ហ្គាម៉ា), ធ្វើឱ្យច្បាស់・ធ្វើឱ្យព្រាល, និងអេហ្វેક્ટពិសេស (បញ្ច្រាសពណ៌・សេពៀ・សខ្មៅ・វីញែត・រកគែម・គ្រីស្តាល់・ភីកសែលរាងឆកោន)។ អាច<b>អនុវត្តច្រើនក្នុងពេលតែមួយ</b> ហើយបិទវិញបានភ្លាមៗ។ ព្រោះអនុវត្តដោយ GPU ផ្លូវចាប់យកនៅតែ zero-copy ដដែល។</p>
+  <div class="gal">
+    <figure><img src="../assets/filter_base.png" alt="OFF" loading="lazy"><figcaption>OFF</figcaption></figure>
+    <figure class="on"><img src="../assets/filter_sepia.png" alt="សេពៀ" loading="lazy"><figcaption>សេពៀ</figcaption></figure>
+    <figure class="on"><img src="../assets/filter_chain.png" alt="សេពៀ＋គ្រីស្តាល់ (អនុវត្តក្នុងពេលតែមួយ)" loading="lazy"><figcaption>សេពៀ＋គ្រីស្តាល់ (អនុវត្តក្នុងពេលតែមួយ)</figcaption></figure>
+    <figure class="on"><img src="../assets/filter_invert.png" alt="បញ្ច្រាសពណ៌" loading="lazy"><figcaption>បញ្ច្រាសពណ៌</figcaption></figure>
+  </div>
+  <div class="cap">រូបថតអេក្រង់ពិត</div>
+</section>
+
+<section id="features">
+  <div class="sh">
+    <span class="no">05</span>
+    <h2>មុខងារ</h2>
+  </div>
+  <div class="cards">
+    <div class="card"><h3>PiP ច្រើនក្នុងពេលតែមួយ</h3><p>អាចបើក PiP សម្រាប់អេក្រង់នីមួយៗបាន។ មួយៗជាការចាប់យកឯករាជ្យ។</p></div>
+    <div class="card"><h3>ការកំណត់ដាច់ដោយឡែកសម្រាប់ PiP នីមួយៗ</h3><p>កំណត់ការនៅលើគេជានិច្ច អត្រាស៊ុម គែមចេញ និងតម្រងផ្សេងគ្នាសម្រាប់បង្អួចនីមួយៗបាន។</p></div>
+    <div class="card"><h3>នៅលើគេជានិច្ច</h3><p>លំនាំដើមគឺ OFF។ បើបើក ON វានឹងមិនត្រូវបង្អួចផ្សេងៗបាំងទេ ប៉ុន្តែមិនបង្ហាញក្នុង Mission Control ឡើយ។</p></div>
+    <div class="card"><h3>គ្រាន់តែរំកិលដល់គែមអេក្រង់ ក៏ត្រឡប់មកអេក្រង់ពិតវិញ</h3><p>ការចេញពីរបៀបគ្រប់គ្រងគឺដូចការរំកិលចេញពីម៉ូនីទ័រ។ គែមចេញអាចកំណត់ ON/OFF សម្រាប់លើ ក្រោម ឆ្វេង ស្តាំបាន ហើយលំនាំដើមបិទតែគែមក្រោមប៉ុណ្ណោះ (ព្រោះជាទីតាំងបង្ហាញ Dock)។</p></div>
+    <div class="card"><h3>អត្រាស៊ុម</h3><p>អាចប្តូរ 30・60・120 fps សម្រាប់ PiP នីមួយៗបាន។</p></div>
+    <div class="card"><h3>ចេញដោយបង្ខំ</h3><p>ចុច Esc ជាប់ៗគ្នា 5 ដង ឬ Control + Command + Esc ដើម្បីយកម៉ៅស៍មកវិញបានគ្រប់ពេល។</p></div>
+  </div>
+</section>
+
+<section id="compare">
+  <div class="sh">
+    <span class="no">06</span>
+    <h2>ប្រៀបធៀប</h2>
+  </div>
+  <p class="lede">ខាងក្រោមជាចំណុចខុសគ្នាសំខាន់ៗជាមួយ BetterDisplay Pro។ gjPiP ផ្តល់<b>មុខងារ PiP ស្មើ BetterDisplay Pro ($21.99) ដោយឥតគិតថ្លៃ</b>។ <b>ការគ្រប់គ្រងម៉ៅស៍តាមរយៈ PiP</b> ជាមុខងារដែលមិនមានរៀបរាប់ក្នុង README ផ្លូវការរបស់ BetterDisplay។ ផ្ទុយទៅវិញ កាត់ផ្ទាំង・បង្វិល・ពង្រីក មិនទាន់បានអនុវត្តនៅឡើយ។</p>
+  <div class="twrap">
+  <table>
+    <thead>
+      <tr><th>ធាតុ</th><th>BetterDisplay</th><th>FreeDisplay (ផ្លូវការ)</th><th>GridJapan/FreeDisplay</th><th>GridJapan/gjPiPWindow</th></tr>
+    </thead>
+    <tbody>
+      <tr><th>តម្លៃ</th><td>កំណែឥតគិតថ្លៃ ＋ Pro $21.99</td><td class="ok">ឥតគិតថ្លៃ</td><td class="ok">ឥតគិតថ្លៃ</td><td class="ok">ឥតគិតថ្លៃ</td></tr>
+      <tr><th>បើកកូដប្រភព</th><td class="no2">×</td><td class="ok">◎</td><td class="ok">◎</td><td class="ok">◎</td></tr>
+      <tr><th>ការគ្រប់គ្រង DDC (ពន្លឺ・កម្រិតផ្ទុយ)</th><td class="ok">◎</td><td class="ok">◎</td><td class="ok">◎ ＋ ជួសជុលការគាំង</td><td class="no2">−</td></tr>
+      <tr><th>អេក្រង់និម្មិត HiDPI</th><td class="ok">◎ (HiDPI បត់បែនត្រូវការ Pro)</td><td class="ok">◎</td><td class="ok">◎ ＋ ចងចាំគុណភាពបង្ហាញ</td><td class="no2">−</td></tr>
+      <tr><th>ការរៀបចំអេក្រង់</th><td class="ok">◎</td><td class="ok">◎</td><td class="ok">◎ ＋ ជួសជុលបញ្ហាអេក្រង់ចម្បងត្រឡប់វិញ</td><td class="no2">−</td></tr>
+      <tr><th>Picture in Picture</th><td>◎ (Pro)</td><td class="no2">×</td><td class="no2">×</td><td class="ok2">◎ ឥតគិតថ្លៃ</td></tr>
+      <tr><th>ការគ្រប់គ្រងម៉ៅស៍តាមរយៈ PiP</th><td class="no2">មិនបានរៀបរាប់</td><td class="no2">×</td><td class="no2">×</td><td class="ok2">◎ របៀបគ្រប់គ្រង</td></tr>
+      <tr><th>តម្រងវីដេអូ</th><td>◎ (Pro)</td><td class="no2">×</td><td class="no2">×</td><td class="ok2">◎ 17 ប្រភេទ・អនុវត្តក្នុងពេលតែមួយ</td></tr>
+      <tr><th>ជួសជុលបញ្ហាស្គាល់រួច 4 ករណី</th><td class="no2">−</td><td class="no2">× (មានបញ្ហា)</td><td class="ok">◎ ជួសជុលរួច</td><td class="no2">−</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p class="src">ជួរឈរ BetterDisplay ផ្អែកលើអ្វីដែលបានរៀបរាប់ក្នុង GitHub README ផ្លូវការ និង betterdisplay.pro (គិតត្រឹម 2026-07)។ 「មិនបានរៀបរាប់」 មានន័យថាមិនឃើញការពិពណ៌នាមុខងារនោះក្នុងឯកសារផ្លូវការ។ ជួរឈរ FreeDisplay ផ្អែកលើកូដ និង README របស់ GridJapan/FreeDisplay repository។</p>
+</section>
+
+<section id="install">
+  <div class="sh">
+    <span class="no">07</span>
+    <h2>ដំឡើង</h2>
+  </div>
+  <p class="lede">បង្កើតពីកូដប្រភព។ ព្រោះ TCC (ការថតអេក្រង់・ភាពងាយស្រួលប្រើប្រាស់) ផ្តល់សិទ្ធិឱ្យតែ .app bundle ដែលបានចុះហត្ថលេខា សូមប្រើ <b>build.sh</b> ជានិច្ច។</p>
+<pre><span class="c"># បង្កើតវិញ្ញាបនបត្រចុះហត្ថលេខាខ្លួនឯង (តែម្ដងដំបូងប៉ុណ្ណោះ។ ទោះបង្កើតឡើងវិញ សិទ្ធិនឹងមិនបាត់ទេ)</span>
+./make-signing-cert.sh
+
+<span class="c"># បង្កើត ហើយបើកដំណើរការ</span>
+./build.sh
+open build/gjPiP.app</pre>
+  <div class="twrap">
+  <table>
+    <thead><tr><th>សិទ្ធិ</th><th>ប្រើសម្រាប់</th><th>ទីតាំងកំណត់</th></tr></thead>
+    <tbody>
+      <tr><th>ការថតអេក្រង់</th><td>ចាប់យកអេក្រង់</td><td>ឯកជនភាព និងសុវត្ថិភាព → ការថតអេក្រង់ និងសំឡេងប្រព័ន្ធ</td></tr>
+      <tr><th>ភាពងាយស្រួលប្រើប្រាស់</th><td>របៀបគ្រប់គ្រង (ផ្ទេរការគ្រប់គ្រងម៉ៅស៍)</td><td>ឯកជនភាព និងសុវត្ថិភាព → ភាពងាយស្រួលប្រើប្រាស់</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p class="note">ក្រោយអនុញ្ញាតទាំងពីរ ត្រូវបើកកម្មវិធីឡើងវិញ។ ប្រអប់ស្នើសិទ្ធិអាចលេចលើអេក្រង់ផ្សេង។</p>
+</section>
+
+<section>
+  <div class="sh">
+    <span class="no">08</span>
+    <h2>ប្រើជាមួយ FreeDisplay</h2>
+  </div>
+  <p class="lede">អេក្រង់និម្មិតផ្ទាល់ត្រូវបានបង្កើតដោយ <a href="https://github.com/GridJapan/FreeDisplay" style="color:var(--a2)">GridJapan/FreeDisplay</a>។ នេះជា fork ដែលបានជួសជុលបញ្ហា 4 ករណីនៅសល់ក្នុង FreeDisplay ផ្លូវការ (DDC គាំង・ម៉ឺនុយទទេ・ការកំណត់អេក្រង់ចម្បងត្រឡប់ទៅដើម・មិនអាចបង្កើតអេក្រង់ទី 3) ហើយឱ្យវាចងចាំគុណភាពបង្ហាញអេក្រង់និម្មិត។ gjPiP ជាផ្នែកដែលបង្ហាញ និងគ្រប់គ្រងអេក្រង់ដែលមើលមិនឃើញនោះ។</p>
+  <div class="gal" style="grid-template-columns:1fr 1fr;align-items:start">
+    <figure><img src="../assets/settings_arrange.png" alt="ការកំណត់ប្រព័ន្ធ「រៀបចំអេក្រង់」— អេក្រង់ពិត 3 ＋ និម្មិត 3 ត្រូវបានរៀបជួរ" loading="lazy">
+      <figcaption>ការកំណត់ប្រព័ន្ធ「រៀបចំអេក្រង់」— អេក្រង់ពិត 3 ＋ និម្មិត 3 ត្រូវបានរៀបជួរ</figcaption></figure>
+    <figure><img src="../assets/settings_fd3.png" alt="អេក្រង់និម្មិតក៏មានជម្រើសគុណភាពបង្ហាញ និងអត្រារីហ្វ្រែស (75Hz)" loading="lazy">
+      <figcaption>អេក្រង់និម្មិតក៏មានជម្រើសគុណភាពបង្ហាញ និងអត្រារីហ្វ្រែស (75Hz)</figcaption></figure>
+  </div>
+  <div class="cap">រូបថតអេក្រង់ពិតពីការកំណត់ប្រព័ន្ធ macOS</div>
+</section>
+
+<footer>
+  <p>gjPiP ／ <a href="https://github.com/GridJapan/gjPiPWindow">GridJapan/gjPiPWindow</a> ・
+  <a href="https://github.com/GridJapan/FreeDisplay">GridJapan/FreeDisplay</a></p>
+  <p style="margin-top:8px">© 2026 GridJapan Co.,Ltd. ／ MIT License</p>
+</footer>
+
+</body>
+</html>
